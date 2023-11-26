@@ -1,11 +1,7 @@
 {
-  "name": "com.vida.framework",
-  "version": "1.0.1",
-  "displayName": "Vida Framework Starter",
-  "description": "Vida Framework for implementations",
-  "unity": "2022.3",
-  "author": {
-    "name": "Vida Software"
-  }
-  
+  "type":        "module"
+  "name":        "com.vida.framework",
+  "version":     "1.0.0",
+  "displayName": "Vida Framework",
+  "description": "Useful for implementations",
 }
