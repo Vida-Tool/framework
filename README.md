@@ -1,8 +1,6 @@
 # vida-framework
 
 # Getting Started
-## Installation
-details><summary>Instructions</summary>
 
 # Possible Errors
 ## No 'git' executable was found FIX!
