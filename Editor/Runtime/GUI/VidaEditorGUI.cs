@@ -5,12 +5,15 @@ namespace Vida.Editor
 {
     public static class VidaEditorGUI
     {
-        public static void Title(string title, bool horizontalLine)
+        public static int DefaultFontSize = 12;
+        
+        public static void Title(string title, bool horizontalLine,TextAnchor anchor = TextAnchor.MiddleCenter,int fontSize = 14)
         {
             GUIStyle style1;
             style1 = new GUIStyle(EditorStyles.largeLabel);
-            style1.alignment = TextAnchor.MiddleCenter;
+            style1.alignment = anchor;
             style1.fontStyle = FontStyle.Bold;
+            style1.fontSize = fontSize;
             
             // VidaGUILayoutOptions.ExpandWidth(true)
             Rect rect = GUILayoutUtility.GetRect(0.0f,18f,style1,VidaGUILayoutOptions.ExpandWidth(true));
@@ -20,6 +23,7 @@ namespace Vida.Editor
             
             GUILayout.Space(3f);
             DrawSolidRect(rect.AlignBottom(1f), VidaGUIStyles.LightBorderColor);
+            GUILayout.Space(5f);
         }
         
         

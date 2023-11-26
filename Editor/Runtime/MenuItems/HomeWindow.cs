@@ -37,10 +37,6 @@ namespace Vida.Editor
                         bool success = GithubConnector.TryConnect();
                         _label[0] = success ? "Success" : "Failed";
                         isConnectionSucceed = success;
-                        if (success)
-                        {
-                            DownloadPackages();
-                        }
                     });
                     MenuWithItem("Download Starter", _label[1],() =>
                     {
@@ -89,10 +85,12 @@ namespace Vida.Editor
             GUILayout.EndHorizontal();
         }
         
-
-        private static void DownloadPackages()
+        
+        public bool TryConnect()
         {
-            UnityInsidePackages.Install();
+            isConnectionSucceed = GithubConnector.TryConnect();
+            _label[0] = isConnectionSucceed ? "Success" : "Failed";
+            return isConnectionSucceed;
         }
     }
 }

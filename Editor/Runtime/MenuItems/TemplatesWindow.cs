@@ -53,20 +53,21 @@ namespace Vida.Editor
 
         public Vector2[] sliderValue = new Vector2[10];
         
-        private void DrawTemplateLister(Vector2 windowSize,string[] items,int placement = 0,bool checkNext = true)
+        private float[] _maxWidths = new float[] { 100,110,120,160};
+        private void DrawTemplateLister(Vector2 windowSize,string[] items,int placement = 0,float totalWidth = 0,bool checkNext = true)
         {
             
             string mainTemplate = EditorPrefs.GetString($"Lister_{0}");
             string selectedTemplate = EditorPrefs.GetString($"Lister_{placement}");
             
-            float boxWidth = windowSize.x * 0.15f;
-            if (boxWidth > 150) boxWidth = 150;
+            float maxWidth = placement > _maxWidths.Length - 1 ? _maxWidths[^1] : _maxWidths[placement];
+            float boxWidth = windowSize.x * (maxWidth * 0.001f);
+            if (boxWidth > maxWidth) boxWidth = maxWidth;
             SirenixEditorGUI.BeginBox(GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
             {
-
-                sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Width(boxWidth), GUILayout.Height(windowSize.y - 100));
+                sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Height(windowSize.y - 100));
                 {
-                    GUILayout.BeginVertical(GUILayout.Height(items.Length * 37));
+                    GUILayout.BeginVertical(GUILayout.Height(items.Length * 32));
                     {
                         foreach (var item in items)
                         {
@@ -81,10 +82,9 @@ namespace Vida.Editor
                                 TextureLoader.GetTexture("button-selected.png") :
                                 TextureLoader.GetTexture("button.png");
 
-                            customButtonStyle.fontSize = item.Length > 15 ? 10 : 12;
-                            customButtonStyle.contentOffset = new Vector2(5, 0);
-                            customButtonStyle.alignment = TextAnchor.MiddleLeft;
-                            if (GUILayout.Button(content,customButtonStyle,GUILayout.Height(35),GUILayout.Width(boxWidth)))
+                            customButtonStyle.fontSize = item.Length > 15 ? 11 : 12;
+                            customButtonStyle.alignment = TextAnchor.MiddleCenter;
+                            if (GUILayout.Button(content,customButtonStyle,GUILayout.Height(35)))
                             {
                                 EditorPrefs.SetString($"Lister_{placement}", item);
                                 ResetEditorPrefs(placement+1);
@@ -102,7 +102,7 @@ namespace Vida.Editor
 
             if (!checkNext)
             {
-                RenderItemInfo(windowSize,selectedTemplate,placement+1);
+                RenderItemInfo(windowSize,selectedTemplate,placement+1,(boxWidth + totalWidth));
                 return;
             }
 
@@ -127,7 +127,7 @@ namespace Vida.Editor
             
             if (nextItems.Length > 0)
             {
-                DrawTemplateLister(windowSize,nextItems,placement + 1);
+                DrawTemplateLister(windowSize,nextItems,placement + 1,(totalWidth+boxWidth));
             }
             else
             {
@@ -137,44 +137,52 @@ namespace Vida.Editor
 
                 if (nextItems.Length > 0)
                 {
-                    DrawTemplateLister(windowSize,nextItems,placement + 1,false);
+                    DrawTemplateLister(windowSize,nextItems,placement + 1,(totalWidth + boxWidth),false);
                 }
                 else
                 {
-                    RenderItemInfo(windowSize,selectedTemplate,placement+1);
+                    RenderItemInfo(windowSize,selectedTemplate,placement+1,(boxWidth + totalWidth));
                 }
             }
         }
         
         
-        private void RenderItemInfo(Vector2 windowSize,string itemName,int placement)
+        private void RenderItemInfo(Vector2 windowSize,string itemName,int placement,float totalWidth)
         {
             var collection = _collections.FirstOrDefault(x => x.Name == itemName);
             if (collection == null) return;
             
             GUILayout.Space(25);
+
+
+            float start = totalWidth;
+            float windowWidth = windowSize.x;
+            float boxWidth = (windowWidth - start);
+            boxWidth = Mathf.Clamp(boxWidth, 160, 400);
             
-            float boxWidth = windowSize.x * 0.4f;
-            // get current x
-            float currentX = windowSize.x * 0.15f;
-            if(currentX > 150) currentX = 150;
-            currentX *= placement + 1;
-            if(boxWidth + currentX > windowSize.x) boxWidth = windowSize.x - currentX;
             
             SirenixEditorGUI.BeginBox(GUILayout.Width(boxWidth),GUILayout.Height(400));
             {
-                sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Width(boxWidth), GUILayout.Height(400));
+                sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement],false,false, GUILayout.Width(boxWidth), GUILayout.Height(400));
                 {
-                    GUILayout.Label(collection.Name);
                     GUILayout.Space(10);
+                    VidaEditorGUI.Title(collection.Name,true);
+                    GUILayout.Label("You can download this template by clicking the button below.");
+                    GUILayout.Space(20);
+                    VidaEditorGUI.Title("Information",true,TextAnchor.MiddleLeft);
                     GUILayout.Label(collection.Info);
-                    GUILayout.Space(25);
-                    GUILayout.Label("Download Location:" + collection.DownloadLocation);
-                    GUILayout.Space(25);
-                    if (GUILayout.Button("Download"))
+                    GUILayout.Space(40);
+                    // set flexible
+                    GUILayout.FlexibleSpace();
+                    
+                    VidaEditorGUI.Title("Actions",true,TextAnchor.MiddleLeft);
+                    GUILayout.Space(5);
+                    if (GUILayout.Button("Download",GUILayout.Height(30),GUILayout.Width(100)))
                     {
                         Download(itemName);
                     }
+                    
+                    GUILayout.Space(20);
                 }
                 GUILayout.EndScrollView();
                 GUI.color = Color.white;

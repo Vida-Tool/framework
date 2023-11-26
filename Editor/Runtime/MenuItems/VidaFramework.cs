@@ -44,7 +44,11 @@ namespace Vida.Editor
         private void CreateGUI()
         {
             _backgroundTexture = TextureLoader.GetTexture("vida-games.png");
-            
+            bool connected = _home.TryConnect();
+            if (connected)
+            {
+                GithubConnector.ReadInfoFile(false);
+            }
         }
 
         private void OnGUI()

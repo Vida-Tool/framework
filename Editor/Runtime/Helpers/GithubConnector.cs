@@ -56,7 +56,7 @@ namespace Vida.Editor
 
         public static int WorkerCount = 0;
         
-        public static void ReadInfoFile()
+        public static void ReadInfoFile(bool force = true)
         {
             if (WorkerCount.Equals(0) == false)
             {
@@ -64,6 +64,12 @@ namespace Vida.Editor
                 return;
             }
             WorkerCount = 0;
+
+            if (!force &&AssetCollections!= null&& AssetCollections.Count > 0)
+            {
+                return;
+            }
+            
             AssetCollections = new List<VidaAssetCollection>();
             string url = githubRepoURL + $"Assets Info";
             ReadAssetInfo(url, (collections) =>
