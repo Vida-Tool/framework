@@ -91,6 +91,14 @@ namespace Vida.Editor
             {
                 AssetCollections = collections;
                 IsFileReading = false;
+                
+                // DEBUG
+                foreach (var collection in collections)
+                {
+                    Debug.Log(collection.Name);
+                    Debug.Log(collection.Templates);
+                    Debug.Log(collection.Location);
+                }
             });
         }
 
@@ -195,7 +203,6 @@ namespace Vida.Editor
                     if(targetName.Length > 0 && itemName != targetName) continue;
                     
                     string itemType = file["type"].ToString();
-
                     if (itemType == "dir")
                     {
                         // Bu bir klasördür, alt dizin içeriğini almak için aynı işlemi tekrarla
@@ -204,8 +211,17 @@ namespace Vida.Editor
                     }
                     else
                     {
-                        // Bu bir dosyadır, dosyayı indirmek için mevcut işlemleri kullanabilirsiniz.
-                        DownloadFile(file, downloadLocation);
+                        Debug.Log(itemName);
+                        if (itemName.Contains(".unitypackage"))
+                        {
+                            ReadUnityPackage(file);
+                        }
+                        else
+                        {
+                            // Bu bir dosyadır, dosyayı indirmek için mevcut işlemleri kullanabilirsiniz.
+                            DownloadFile(file, downloadLocation);
+                        }
+                        
                     }
                 }
             }
