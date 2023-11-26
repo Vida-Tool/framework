@@ -20,6 +20,7 @@ namespace Vida.Editor
                         GUI.color = IsSelected(i) ? Color.white : Color.gray;
                         if (SirenixEditorGUI.ToolbarButton(new GUIContent(key),IsSelected(i)))
                         {
+                            TemplatesWindow.ResetEditorPrefs();
                             SetSelected(i);
                         }
                         GUILayout.Space(10);
@@ -31,11 +32,13 @@ namespace Vida.Editor
                     
                     if (SirenixEditorGUI.ToolbarButton(new GUIContent("Reset"),false))
                     {
+                        TemplatesWindow.ResetEditorPrefs();
                         GithubConnector.ResetConnection();
                         ReloadNeeded = true;
                     }
                     if (SirenixEditorGUI.ToolbarButton(new GUIContent("Reload"),false))
                     {
+                        TemplatesWindow.ResetEditorPrefs();
                         GithubConnector.ReadInfoFile();
                         ReloadNeeded = true;
                     }

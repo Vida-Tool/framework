@@ -14,7 +14,7 @@ namespace Vida.Editor
     public class TemplatesWindow
     {
         public static List<VidaAssetCollection> Collections { get; set; }
-
+        public static string[] SelectedTemplates = new string[15]; 
 
         public void Draw(Vector2 windowSize)
         {
@@ -30,44 +30,38 @@ namespace Vida.Editor
                 Collections = GithubConnector.AssetCollections;
                 return;
             }
-            
-            
-            SirenixEditorGUI.BeginHorizontalToolbar();
-            {
-                if (Collections == null)
-                {
-                    GithubConnector.ReadInfoFile();
-                    Collections = GithubConnector.AssetCollections;
-                }
 
-                if (Collections.Count > 0)
+            if (Collections.Count > 0)
+            {
+                SirenixEditorGUI.BeginHorizontalToolbar();
                 {
                     // Get All Templates from _collections
                     var templates = Collections.SelectMany(x => x.Templates).Distinct().ToArray();
                     DrawTemplateLister(windowSize,templates,0);
                     GUILayout.FlexibleSpace();
                 }
+                SirenixEditorGUI.EndHorizontalToolbar();
             }
-            SirenixEditorGUI.EndHorizontalToolbar();
+
         }
 
         public Vector2[] sliderValue = new Vector2[10];
         
-        private float[] _maxWidths = new float[] { 100,110,120,160};
+        private float[] _maxWidths = new float[] { 100,110,160,160};
         private void DrawTemplateLister(Vector2 windowSize,string[] items,int placement = 0,float totalWidth = 0,bool checkNext = true)
         {
-            string mainTemplate = EditorPrefs.GetString($"Lister_{0}");
-            string selectedTemplate = EditorPrefs.GetString($"Lister_{placement}");
-            float maxWidth = placement > _maxWidths.Length - 1 ? _maxWidths[^1] : _maxWidths[placement];
-            float boxWidth = windowSize.x * (maxWidth * 0.001f);
-            if (boxWidth > maxWidth) boxWidth = maxWidth;
+            string mainTemplate = SelectedTemplates[0];
+            //string mainTemplate = EditorPrefs.GetString($"Lister_{0}");
+            string selectedTemplate = SelectedTemplates[placement];
+            //string selectedTemplate = EditorPrefs.GetString($"Lister_{placement}");
+            float boxWidth = placement > _maxWidths.Length - 1 ? _maxWidths[^1] : _maxWidths[placement];
             
             
             SirenixEditorGUI.BeginBox(GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
             {
-                sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Height(windowSize.y - 100));
+                sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
                 {
-                    GUILayout.BeginVertical(GUILayout.Height(items.Length * 32));
+                    GUILayout.BeginVertical(GUILayout.Height(items.Length * 25),GUILayout.Width(boxWidth));
                     {
                         foreach (var item in items)
                         {
@@ -76,20 +70,20 @@ namespace Vida.Editor
                             GUIStyle customButtonStyle = new GUIStyle(GUI.skin.button);
 
                             bool isSelected = selectedTemplate == item;
-      
+                            GUI.backgroundColor = isSelected ? VidaGUIStyles.MatteGray: VidaGUIStyles.LightGray;
                             
-                            customButtonStyle.normal.background = isSelected?
-                                TextureLoader.GetTexture("button-selected.png") :
-                                TextureLoader.GetTexture("button.png");
 
                             customButtonStyle.fontSize = item.Length > 15 ? 11 : 12;
                             customButtonStyle.alignment = TextAnchor.MiddleCenter;
-                            if (GUILayout.Button(content,customButtonStyle,GUILayout.Height(35)))
+                            // SET BUTTON ALIGNMENT TO CENTER
+                            if (GUILayout.Button(content,customButtonStyle,GUILayout.Height(25),GUILayout.Width(boxWidth-10)))
                             {
-                                EditorPrefs.SetString($"Lister_{placement}", item);
+                                SelectedTemplates[placement] = item;
+                                //EditorPrefs.SetString($"Lister_{placement}", item);
                                 ResetEditorPrefs(placement+1);
                             }
 
+                            GUI.backgroundColor = VidaGUIStyles.DefaultColor;
                             GUILayout.Space(5);
                         }
                     }
@@ -165,7 +159,9 @@ namespace Vida.Editor
                 sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement],false,false, GUILayout.Width(boxWidth), GUILayout.Height(400));
                 {
                     GUILayout.Space(10);
+                    GUI.backgroundColor = VidaGUIStyles.SoftGreen;
                     VidaEditorGUI.Title(collection.Name,true);
+                    GUI.backgroundColor = VidaGUIStyles.DefaultColor;
                     GUILayout.Label("You can download this template by clicking the button below.");
                     GUILayout.Space(20);
                     VidaEditorGUI.Title("Information",true,TextAnchor.MiddleLeft);
@@ -184,7 +180,6 @@ namespace Vida.Editor
                     GUILayout.Space(20);
                 }
                 GUILayout.EndScrollView();
-                GUI.color = Color.white;
                 
             }
             SirenixEditorGUI.EndBox();
@@ -196,11 +191,12 @@ namespace Vida.Editor
         }
         
         
-        private void ResetEditorPrefs(int start)
+        public static void ResetEditorPrefs(int start = 0)
         {
             for (int i = start; i < 10; i++)
             {
-                EditorPrefs.SetString($"Lister_{i}", "");
+                SelectedTemplates[i] = "";
+                //EditorPrefs.SetString($"Lister_{i}", "");
             }
         }
     }

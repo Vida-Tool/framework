@@ -61,7 +61,6 @@ namespace Vida.Editor
             }
         }
 
-        [MenuItem("Vida/Create dir")]
         public static void CreateDirs()
         {
             Dir();

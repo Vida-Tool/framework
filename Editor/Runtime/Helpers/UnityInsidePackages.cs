@@ -16,7 +16,6 @@ namespace Vida.Editor
             "com.unity.cinemachine", "com.unity.render-pipelines.universal", "com.unity.recorder","com.unity.mathematics"
         };
                     
-        [MenuItem("Vida/Package Dependencies Installer")]
         public static void Install()
         {
             ListRequest listRequest = Client.List();

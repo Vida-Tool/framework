@@ -11,14 +11,14 @@ namespace Vida.Editor
     
     public class VidaFramework : EditorWindow
     {
-        [MenuItem("Vida/Window")]
+        [MenuItem("Vida/Menu")]
         private static void OpenWindow()
         {
             VDefineSymbolInjector.Inject();
 
             var window = GetWindow<VidaFramework>();
-            window.position = GUIHelper.GetEditorWindowRect().AlignCenter(800, 600);
-            window.minSize = new Vector2(600, 400);
+            window.position = GUIHelper.GetEditorWindowRect().AlignCenter(900, 500);
+            window.minSize = new Vector2(900, 500);
         }
 
 
@@ -49,6 +49,8 @@ namespace Vida.Editor
             {
                 GithubConnector.ReadInfoFile(false);
             }
+            
+            TemplatesWindow.ResetEditorPrefs();
         }
 
         private void OnGUI()
