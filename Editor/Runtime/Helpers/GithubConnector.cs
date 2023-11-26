@@ -12,7 +12,7 @@ using static System.IO.Directory;
 using static System.IO.Path;
 using static UnityEngine.Application;
 
-namespace VidaFramework.Editor
+namespace Vida.Editor
 {
 
     public static class GithubConnector
@@ -25,7 +25,6 @@ namespace VidaFramework.Editor
         private static string authToken => $"Bearer {apiKey}";
         private static string acceptToken => "application/vnd.github.v3+json";
         
-        private static readonly string downloadRoot = "DownloadedFiles";
         #endregion
         
         
@@ -38,13 +37,13 @@ namespace VidaFramework.Editor
             www.SendWebRequest();
             while(!www.isDone) {}
         
-            if (www.isNetworkError || www.isHttpError)
+            if(www.result == UnityWebRequest.Result.Success)
             {
-                return false;
+                return true;
             }
             else
             {
-                return true;
+                return false;
             }
         }
 
@@ -73,7 +72,7 @@ namespace VidaFramework.Editor
             });
         }
 
-        public static async void DownloadStarter()
+        public static void DownloadStarter(Action<bool> callback = null)
         {
             if (WorkerCount.Equals(0) == false)
             {
@@ -93,12 +92,12 @@ namespace VidaFramework.Editor
                 {
                     JToken token = JToken.Parse(request.downloadHandler.text);
                     ReadUnityPackage(token);
-                    
-
+                    callback?.Invoke(true);
                 }
                 else
                 {
                     Debug.LogError("Failed to download package. Error: " + request.error);
+                    callback?.Invoke(false);
                 }
             };
         }
@@ -172,7 +171,7 @@ namespace VidaFramework.Editor
                     {
                         // Bu bir klasördür, alt dizin içeriğini almak için aynı işlemi tekrarla
                         string subdirectoryUrl = $"{url}/{itemName}";
-                        DownloadItem(subdirectoryUrl, downloadLocation+"/"+itemName,"");
+                        Task task = DownloadItem(subdirectoryUrl, downloadLocation+"/"+itemName,"");
                     }
                     else
                     {
@@ -182,6 +181,7 @@ namespace VidaFramework.Editor
                 }
             }
         }
+        
 
 
 

@@ -1,7 +1,7 @@
 ﻿
 
 #if UNITY_EDITOR
-namespace VidaFramework.Editor
+namespace Vida.Editor
 {
     using System;
     using UnityEngine;
@@ -14,6 +14,8 @@ namespace VidaFramework.Editor
         [MenuItem("Vida/Window")]
         private static void OpenWindow()
         {
+            VDefineSymbolInjector.Inject();
+
             var window = GetWindow<VidaFramework>();
             window.position = GUIHelper.GetEditorWindowRect().AlignCenter(800, 600);
             window.minSize = new Vector2(600, 400);
@@ -21,39 +23,39 @@ namespace VidaFramework.Editor
 
 
         private MainToolbar _mainToolbar = new MainToolbar();
-
         private HomeWindow _home = new HomeWindow();
         private TemplatesWindow _templates = new TemplatesWindow();
 
-        private void DrawBackgroundTexture(Vector2 windowSize)
+        private Texture2D _backgroundTexture;
+        
+        private void DrawBackgroundTexture()
         {
-            Texture2D texture2D = TextureLoader.GetTexture("vida-games.png");
-            GUIStyle boxStyle = new GUIStyle(GUIStyle.none);
-            boxStyle.normal.background = texture2D;
-            //GUI.Box(new Rect(0,0,windowSize.x,windowSize.y), GUIContent.none, boxStyle);
+            var windowSize = position.size;
+            windowSize.x -= 25;
+            windowSize.y -= 25;
+            
+            float width = _backgroundTexture.width * 0.3f;
+            float height = _backgroundTexture.height * 0.3f;
 
+            Rect textureRect = new Rect(windowSize.x - width,windowSize.y - height,width,height);
+            GUI.DrawTexture(textureRect,_backgroundTexture);
+        }
 
-            var width = texture2D.width * 0.5f;
-            var height = texture2D.height * 0.5f;
-            Rect textureRect = new Rect(windowSize.x/2f - width*0.5f,windowSize.y/2f - height*0.5f,width,height);
-            // set texture with position to center
-            GUI.DrawTexture(textureRect,texture2D);
+        private void CreateGUI()
+        {
+            _backgroundTexture = TextureLoader.GetTexture("vida-games.png");
+            
         }
 
         private void OnGUI()
         {
-            SirenixEditorGUI.Title("VIDA 0.1.0", "", TextAlignment.Center, true);
-            GUILayout.Space(10);
-
             var windowSize = position.size;
             windowSize.x -= 10;
             
+            DrawBackgroundTexture();
 
-            
-            DrawBackgroundTexture(windowSize);
-
-            
-            
+            VidaEditorGUI.Title("VIDA", true);
+            GUILayout.Space(10);
             
             SirenixEditorGUI.BeginBox(GUILayout.Width(windowSize.x), GUILayout.Height(windowSize.y - 20));
             {

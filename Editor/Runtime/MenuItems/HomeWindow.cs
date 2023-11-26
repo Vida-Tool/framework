@@ -1,10 +1,8 @@
-﻿using Sirenix.OdinInspector;
-using Sirenix.OdinInspector.Editor;
+﻿using System;
 using Sirenix.Utilities.Editor;
 using UnityEngine;
-using VIDA.Editor;
 
-namespace VidaFramework.Editor
+namespace Vida.Editor
 {
     public class HomeWindow
     {
@@ -16,23 +14,10 @@ namespace VidaFramework.Editor
         public bool isConnectionChecked = false;
         public bool isConnectionSucceed = false;
         
-        private string _label = "...";
+        private string[] _label = new []{"...","..."};
 
         public void Draw(Vector2 windowSize)
         {
-            if (isConnectionChecked == false && apiKey.Length > 0)
-            {
-                bool success = GithubConnector.TryConnect();
-                _label = success ? "Success" : "Failed";
-                isConnectionChecked = true;
-                isConnectionSucceed = success;
-                
-                if (success)
-                {
-                    DownloadPackages();
-                }
-            }
-            
             SirenixEditorGUI.BeginBox(GUILayout.Width(windowSize.x * 0.75f), GUILayout.Height(windowSize.y * 0.3f));
             {
                 var newApiKey = SirenixEditorFields.TextField("", apiKey,GUILayout.Width(windowSize.x * 0.75f));
@@ -42,40 +27,41 @@ namespace VidaFramework.Editor
                     isConnectionChecked = false;
                 }
                 
-                GUILayout.Space(10);
-                
-                GUIStyle buttonStyle = new GUIStyle(GUIStyle.none);
-                
-                GUILayout.BeginHorizontal(buttonStyle, GUILayout.Width(200), GUILayout.Height(50));
+                GUILayout.Space(15);
+
+
+                GUILayout.BeginVertical();
                 {
-                    GUILayout.Space(20);
-
-                    if (GUILayout.Button("Check Key", GUILayout.Width(100)))
+                    MenuWithItem("Check Key", _label[0],() =>
                     {
+                        bool success = GithubConnector.TryConnect();
+                        _label[0] = success ? "Success" : "Failed";
+                        isConnectionSucceed = success;
+                        if (success)
                         {
-                            bool success = GithubConnector.TryConnect();
-                            _label = success ? "Success" : "Failed";
-                            isConnectionSucceed = success;
-                            if (success)
-                            {
-                                DownloadPackages();
-                            }
+                            DownloadPackages();
                         }
-                    }
-
-                    if (GUILayout.Button("Download Starter"))
+                    });
+                    MenuWithItem("Download Starter", _label[1],() =>
                     {
-                        GithubConnector.DownloadStarter();
-                    }
-                    
-                    GUILayout.Space(20);
+                        if (isConnectionSucceed )
+                        {
+                            GithubConnector.DownloadStarter((result) =>
+                            {
+                                _label[1] = result ? "Success" : "Failed";
+                            });
+                        }
+                        else
+                        {
+                            _label[1] = "Key is not valid";
+                        }
                         
-                    GUI.color = _label == "Success" ? Color.green : (_label == "Failed" ? Color.red : Color.white);
-                    GUILayout.Label(_label);
-                    GUI.color = Color.white;
-                    
-                }
-                GUILayout.EndHorizontal();
+                        
+                        
+                    });
+                } 
+                GUILayout.EndVertical();
+                
                 
                 GUILayout.FlexibleSpace();
             }
@@ -83,6 +69,26 @@ namespace VidaFramework.Editor
             GUI.color = Color.white;
         }
 
+
+        private void MenuWithItem(string buttonName,string label,Action buttonClick)
+        {
+            GUIStyle buttonStyle = new GUIStyle(GUIStyle.none);
+            GUILayout.BeginHorizontal(buttonStyle, GUILayout.Width(200), GUILayout.Height(50));
+
+            if (GUILayout.Button(buttonName, GUILayout.Width(150), GUILayout.Height(35)))
+            {
+                buttonClick.Invoke();
+            }
+            
+            GUILayout.Space(25);
+                        
+            GUI.color = label == "Success" ? Color.green : (label == "Failed" ? Color.red : Color.white);
+            GUILayout.Label(label, VidaGUIStyles.CenteredLabel, GUILayout.Height(35));
+            GUI.color = Color.white;
+            
+            GUILayout.EndHorizontal();
+        }
+        
 
         private static void DownloadPackages()
         {

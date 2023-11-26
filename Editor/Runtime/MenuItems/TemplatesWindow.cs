@@ -9,12 +9,11 @@ using Sirenix.Utilities.Editor;
 using UnityEditor;
 using UnityEngine;
 
-namespace VidaFramework.Editor
+namespace Vida.Editor
 {
     public class TemplatesWindow
     {
         private static List<VidaAssetCollection> _collections;
-        private static string _spritePath = "Assets/vida-framework/Resources/Sprites/";
 
         
         public void Draw(Vector2 windowSize)

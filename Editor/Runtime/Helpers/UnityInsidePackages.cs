@@ -3,7 +3,7 @@ using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 
-namespace VIDA.Editor
+namespace Vida.Editor
 {
     public class UnityInsidePackages
     {
