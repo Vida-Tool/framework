@@ -91,14 +91,6 @@ namespace Vida.Editor
             {
                 AssetCollections = collections;
                 IsFileReading = false;
-                
-                // DEBUG
-                foreach (var collection in collections)
-                {
-                    Debug.Log(collection.Name);
-                    Debug.Log(collection.Templates);
-                    Debug.Log(collection.Location);
-                }
             });
         }
 
