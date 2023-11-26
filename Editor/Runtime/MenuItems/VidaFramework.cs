@@ -78,8 +78,6 @@ namespace Vida.Editor
                             break;
                         case "Settings":
                             break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
                     }
                 }
                 else

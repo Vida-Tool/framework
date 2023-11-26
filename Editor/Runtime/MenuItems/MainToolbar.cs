@@ -28,6 +28,12 @@ namespace Vida.Editor
                     GUILayout.FlexibleSpace();
                     GUI.color = Color.white;
                     
+                    
+                    if (SirenixEditorGUI.ToolbarButton(new GUIContent("Reset"),false))
+                    {
+                        GithubConnector.ResetConnection();
+                        ReloadNeeded = true;
+                    }
                     if (SirenixEditorGUI.ToolbarButton(new GUIContent("Reload"),false))
                     {
                         GithubConnector.ReadInfoFile();

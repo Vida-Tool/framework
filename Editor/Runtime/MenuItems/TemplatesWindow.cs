@@ -13,40 +13,41 @@ namespace Vida.Editor
 {
     public class TemplatesWindow
     {
-        private static List<VidaAssetCollection> _collections;
+        public static List<VidaAssetCollection> Collections { get; set; }
 
-        
+
         public void Draw(Vector2 windowSize)
         {
             if (MainToolbar.ReloadNeeded)
             {
-                _collections = GithubConnector.AssetCollections;
+                Collections = GithubConnector.AssetCollections;
                 MainToolbar.ReloadNeeded = false;
             }
 
-            if (_collections == null)
+            if (Collections == null)
             {
                 GithubConnector.ReadInfoFile();
-                _collections = GithubConnector.AssetCollections;
+                Collections = GithubConnector.AssetCollections;
                 return;
             }
             
             
             SirenixEditorGUI.BeginHorizontalToolbar();
             {
-                if (_collections == null)
+                if (Collections == null)
                 {
                     GithubConnector.ReadInfoFile();
-                    _collections = GithubConnector.AssetCollections;
+                    Collections = GithubConnector.AssetCollections;
                 }
-                // Get All Templates from _collections
-                var templates = _collections.SelectMany(x => x.Templates).Distinct().ToArray();
-                
-                DrawTemplateLister(windowSize,templates,0);
-                
-                GUILayout.FlexibleSpace();
-                
-    
+
+                if (Collections.Count > 0)
+                {
+                    Debug.Log(Collections[0].Templates);
+                    // Get All Templates from _collections
+                    var templates = Collections.SelectMany(x => x.Templates).Distinct().ToArray();
+                    DrawTemplateLister(windowSize,templates,0);
+                    GUILayout.FlexibleSpace();
+                }
             }
             SirenixEditorGUI.EndHorizontalToolbar();
         }
@@ -56,13 +57,13 @@ namespace Vida.Editor
         private float[] _maxWidths = new float[] { 100,110,120,160};
         private void DrawTemplateLister(Vector2 windowSize,string[] items,int placement = 0,float totalWidth = 0,bool checkNext = true)
         {
-            
             string mainTemplate = EditorPrefs.GetString($"Lister_{0}");
             string selectedTemplate = EditorPrefs.GetString($"Lister_{placement}");
-            
             float maxWidth = placement > _maxWidths.Length - 1 ? _maxWidths[^1] : _maxWidths[placement];
             float boxWidth = windowSize.x * (maxWidth * 0.001f);
             if (boxWidth > maxWidth) boxWidth = maxWidth;
+            
+            
             SirenixEditorGUI.BeginBox(GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
             {
                 sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Height(windowSize.y - 100));
@@ -96,7 +97,6 @@ namespace Vida.Editor
                     GUILayout.EndVertical();
                 }
                 GUILayout.EndScrollView();
-                
             }
             SirenixEditorGUI.EndBox();
 
@@ -111,14 +111,14 @@ namespace Vida.Editor
             // If placement is 0, then we are looking for the main template
             if (placement == 0)
             {
-                nextItems = _collections
+                nextItems = Collections
                     .Where(x => x.separatedMenu.Length > placement && x.Templates.Contains(mainTemplate))
                     .Select(x => x.separatedMenu[placement]).Distinct().ToArray();
             }
             // If placement is not 0, then we are looking for the selected template
             else
             {
-                nextItems = _collections
+                nextItems = Collections
                     .Where(x => x.separatedMenu.Length >= placement && x.Templates.Contains(mainTemplate) && x.separatedMenu.Contains(selectedTemplate))
                     .Select(x => (x.separatedMenu.Length>placement?x.separatedMenu[placement] : x.Name)).Distinct().ToArray();
                
@@ -131,7 +131,7 @@ namespace Vida.Editor
             }
             else
             {
-                nextItems = _collections
+                nextItems = Collections
                     .Where(x => (x.separatedMenu[^1] == selectedTemplate))
                     .Select(x => x.Name).Distinct().ToArray();
 
@@ -149,7 +149,7 @@ namespace Vida.Editor
         
         private void RenderItemInfo(Vector2 windowSize,string itemName,int placement,float totalWidth)
         {
-            var collection = _collections.FirstOrDefault(x => x.Name == itemName);
+            var collection = Collections.FirstOrDefault(x => x.Name == itemName);
             if (collection == null) return;
             
             GUILayout.Space(25);
@@ -196,14 +196,6 @@ namespace Vida.Editor
             GithubConnector.DownloadItem(itemName);
         }
         
-        private void RenderAllCollections()
-        {
-            foreach (var collection in _collections)
-            {
-                GUILayout.Label(collection.Name + " - " + collection.Location + " - " + collection.Menu + " - " + collection.Info);
-            }
-        }
-
         
         private void ResetEditorPrefs(int start)
         {

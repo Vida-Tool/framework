@@ -51,9 +51,6 @@ namespace Vida.Editor
                         {
                             _label[1] = "Key is not valid";
                         }
-                        
-                        
-                        
                     });
                 } 
                 GUILayout.EndVertical();
@@ -70,18 +67,18 @@ namespace Vida.Editor
         {
             GUIStyle buttonStyle = new GUIStyle(GUIStyle.none);
             GUILayout.BeginHorizontal(buttonStyle, GUILayout.Width(200), GUILayout.Height(50));
-
-            if (GUILayout.Button(buttonName, GUILayout.Width(150), GUILayout.Height(35)))
             {
-                buttonClick.Invoke();
-            }
+                if (GUILayout.Button(buttonName, GUILayout.Width(150), GUILayout.Height(35)))
+                {
+                    buttonClick.Invoke();
+                }
             
-            GUILayout.Space(25);
+                GUILayout.Space(25);
                         
-            GUI.color = label == "Success" ? Color.green : (label == "Failed" ? Color.red : Color.white);
-            GUILayout.Label(label, VidaGUIStyles.CenteredLabel, GUILayout.Height(35));
-            GUI.color = Color.white;
-            
+                GUI.color = label == "Success" ? Color.green : (label == "Failed" ? Color.red : Color.white);
+                GUILayout.Label(label, VidaGUIStyles.CenteredLabel, GUILayout.Height(35));
+                GUI.color = Color.white;
+            }
             GUILayout.EndHorizontal();
         }
         

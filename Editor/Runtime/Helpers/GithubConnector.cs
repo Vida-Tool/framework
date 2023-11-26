@@ -26,6 +26,20 @@ namespace Vida.Editor
         private static string acceptToken => "application/vnd.github.v3+json";
         
         #endregion
+
+
+        public static int WorkerCount { get; set; } = 0;
+        public static bool IsFileReading { get; set; } = false;
+        public static bool IsFileDownloading { get; set; } = false;
+        
+
+        public static void ResetConnection()
+        {
+            WorkerCount = 0;
+            IsFileReading = false;
+            IsFileDownloading = false;
+            AssetCollections = new List<VidaAssetCollection>();
+        }
         
         
                 
@@ -54,39 +68,44 @@ namespace Vida.Editor
             AssetDatabase.Refresh();
         }
 
-        public static int WorkerCount = 0;
-        
+    
         public static void ReadInfoFile(bool force = true)
         {
+            if(IsFileReading) return;
+            
             if (WorkerCount.Equals(0) == false)
             {
                 Debug.Log("Worker is busy");
                 return;
             }
-            WorkerCount = 0;
-
             if (!force &&AssetCollections!= null&& AssetCollections.Count > 0)
             {
                 return;
             }
+            WorkerCount = 0;
+            IsFileReading = true;
             
             AssetCollections = new List<VidaAssetCollection>();
             string url = githubRepoURL + $"Assets Info";
             ReadAssetInfo(url, (collections) =>
             {
                 AssetCollections = collections;
+                IsFileReading = false;
             });
         }
 
         public static void DownloadStarter(Action<bool> callback = null)
         {
+            if(IsFileDownloading) return;
+            
             if (WorkerCount.Equals(0) == false)
             {
                 Debug.Log("Worker is busy");
                 return;
             }
-            WorkerCount = 0;
-
+            WorkerCount = 1;
+            IsFileDownloading = true;
+            
             string url = githubRepoURL + "/Starter.unitypackage";
             UnityWebRequest request = UnityWebRequest.Get(url);
             request.SetRequestHeader("Authorization", authToken);
@@ -104,6 +123,8 @@ namespace Vida.Editor
                 {
                     Debug.LogError("Failed to download package. Error: " + request.error);
                     callback?.Invoke(false);
+                    IsFileDownloading = false;
+                    WorkerCount = 0;
                 }
             };
         }
@@ -131,7 +152,9 @@ namespace Vida.Editor
             }
                     
 
-            Debug.Log("Package downloaded and imported successfully!");
+            Debug.Log("Package downloaded successfully!");
+            IsFileDownloading = false;
+            WorkerCount = 0;
         }
 
         public static async void DownloadItem(string itemName)
@@ -246,9 +269,9 @@ namespace Vida.Editor
         
         private static async void ReadAssetInfo(string url,Action<List<VidaAssetCollection>> callback)
         {
-            var collections = new List<VidaAssetCollection>();
             WorkerCount++;
             
+            var collections = new List<VidaAssetCollection>();
             UnityWebRequest www = UnityWebRequest.Get(url);
             www.SetRequestHeader("Authorization", authToken);
             www.SetRequestHeader("Accept", acceptToken);
@@ -283,8 +306,8 @@ namespace Vida.Editor
                 }
                 
             }
-            WorkerCount--;
 
+            WorkerCount--;
             while (WorkerCount > 0)
             {
                 await Task.Delay(100);
@@ -307,13 +330,16 @@ namespace Vida.Editor
                 string content = await response.Content.ReadAsStringAsync();
                 string[] lines = content.Split(";");
 
-                collection = new VidaAssetCollection();
+                if (lines.Length > 1)
+                {
+                    collection = new VidaAssetCollection();
+                }
 
 
                 foreach (string item in lines)
                 {
                     string line = item.Trim();
-                    
+                    if(line.Length <= 1) continue;
                     int startIndex = line.IndexOf("{") + 1;
                     int endIndex = line.IndexOf("}");
                     string result = line.Substring(startIndex, endIndex - startIndex);
@@ -342,7 +368,12 @@ namespace Vida.Editor
                         collection.DownloadLocation = result;
                     }
                 }
-                callback.Invoke(collection);
+
+                if (collection != null)
+                {
+                    callback.Invoke(collection);
+                }
+                
                 MainToolbar.ReloadNeeded = true;
             }
             WorkerCount--;
@@ -379,5 +410,10 @@ namespace Vida.Editor
         public string Menu { get; set; }
         
         public string[] separatedMenu => Menu.Split('/');
+
+        public VidaAssetCollection()
+        {
+            Templates = new List<string>();
+        }
     }
 }
