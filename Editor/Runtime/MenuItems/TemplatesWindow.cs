@@ -42,7 +42,6 @@ namespace Vida.Editor
 
                 if (Collections.Count > 0)
                 {
-                    Debug.Log(Collections[0].Templates);
                     // Get All Templates from _collections
                     var templates = Collections.SelectMany(x => x.Templates).Distinct().ToArray();
                     DrawTemplateLister(windowSize,templates,0);

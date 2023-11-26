@@ -211,7 +211,6 @@ namespace Vida.Editor
                     }
                     else
                     {
-                        Debug.Log(itemName);
                         if (itemName.Contains(".unitypackage"))
                         {
                             ReadUnityPackage(file);
