@@ -32,6 +32,12 @@ namespace Vida.Editor
                 symbols += ";ODIN_INSPECTOR_3_1";
                 changed = true;
             }
+            if (!symbols.Contains("UNITASK_DOTWEEN_SUPPORT"))
+            {
+                symbols += ";UNITASK_DOTWEEN_SUPPORT";
+                changed = true;
+            }
+             
 
             if (changed)
             {
