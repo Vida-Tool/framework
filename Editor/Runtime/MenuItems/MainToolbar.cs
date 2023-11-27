@@ -38,6 +38,7 @@ namespace Vida.Editor
                     }
                     if (SirenixEditorGUI.ToolbarButton(new GUIContent("Reload"),false))
                     {
+                        EditorPrefs.DeleteKey("Collections");
                         TemplatesWindow.ResetEditorPrefs();
                         GithubConnector.ReadInfoFile();
                         ReloadNeeded = true;

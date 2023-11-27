@@ -8,6 +8,8 @@ using UnityEngine;
 using UnityEngine.Networking;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Codice.Client.BaseCommands.Ls;
+using Unity.Plastic.Newtonsoft.Json;
 using static System.IO.Directory;
 using static System.IO.Path;
 using static UnityEngine.Application;
@@ -17,7 +19,7 @@ namespace Vida.Editor
 
     public static class GithubConnector
     {
-        public static List<VidaAssetCollection> AssetCollections = new List<VidaAssetCollection>();
+        public static List<VidaAssetCollection> AssetCollections;
 
         
         #region Private 
@@ -33,12 +35,46 @@ namespace Vida.Editor
         public static bool IsFileDownloading { get; set; } = false;
         
 
+        
+        
+        public static async void SaveAssetCollections()
+        {
+            await Task.Delay(250);
+            while (IsFileReading && AssetCollections is { Count: <= 0 })
+            {
+                await Task.Delay(10);
+            }
+            
+            string json = JsonConvert.SerializeObject(AssetCollections);
+            EditorPrefs.SetString("Collections", json);
+        }
+
+        public static List<VidaAssetCollection> LoadAssetCollections()
+        {
+            if (EditorPrefs.HasKey("Collections"))
+            {
+                string json = EditorPrefs.GetString("Collections",null);
+                try
+                {
+                    return JsonConvert.DeserializeObject<List<VidaAssetCollection>>(json);
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+            return null;
+        }
+        
+        
+        
         public static void ResetConnection()
         {
             WorkerCount = 0;
             IsFileReading = false;
             IsFileDownloading = false;
-            AssetCollections = new List<VidaAssetCollection>();
+            EditorPrefs.DeleteKey("Collections");
+            AssetCollections = null;
         }
         
         
@@ -61,11 +97,6 @@ namespace Vida.Editor
             }
         }
 
-        public static void CreateDirs()
-        {
-            Dir();
-            AssetDatabase.Refresh();
-        }
 
     
         public static void ReadInfoFile(bool force = true)
@@ -77,21 +108,41 @@ namespace Vida.Editor
                 Debug.Log("Worker is busy");
                 return;
             }
-            if (!force &&AssetCollections!= null&& AssetCollections.Count > 0)
+
+            if (force)
             {
-                return;
+                
             }
+            else
+            {
+                AssetCollections = LoadAssetCollections();
+
+                if (AssetCollections is { Count: > 0 })
+                {
+                    return;
+                }
+                else
+                {
+                }
+                
+            }
+
+            AssetCollections = null;
             WorkerCount = 0;
             IsFileReading = true;
             
-            AssetCollections = new List<VidaAssetCollection>();
             string url = githubRepoURL + $"Assets Info";
-            ReadAssetInfo(url, (collections) =>
+            Debug.Log("VIDA: Initiating data read.");
+            ReadAssetInfo(url,true, (collections) =>
             {
                 AssetCollections = collections;
                 IsFileReading = false;
+                SaveAssetCollections();
+                Debug.Log("VIDA: All data has been read.");
             });
         }
+        
+        
 
         public static void DownloadStarter(Action<bool> callback = null)
         {
@@ -270,21 +321,22 @@ namespace Vida.Editor
                 Debug.Log("File Downloaded!");
             }
         }
-        
-        
-        
-        private static async void ReadAssetInfo(string url,Action<List<VidaAssetCollection>> callback)
+
+
+
+        public static List<VidaAssetCollection> LoadedList;
+        private static async void ReadAssetInfo(string url,bool isFirst,Action<List<VidaAssetCollection>> callback)
         {
             WorkerCount++;
+            LoadedList = new List<VidaAssetCollection>();
             
-            var collections = new List<VidaAssetCollection>();
             UnityWebRequest www = UnityWebRequest.Get(url);
             www.SetRequestHeader("Authorization", authToken);
-            www.SetRequestHeader("Accept", acceptToken);
+            //www.SetRequestHeader("Accept", acceptToken);
             www.SendWebRequest();
             while (!www.isDone)
             {
-                await Task.Delay(100);
+                await Task.Delay(10);
             }
 
             
@@ -299,27 +351,42 @@ namespace Vida.Editor
                     {
                         ReadTxt(file, (collection) =>
                         {
-                            collections.Add(collection);
+                            LoadedList.Add(collection);
                         });
                     }
                     else if (file["type"].ToString() == "dir")
                     {
-                        ReadAssetInfo(url + "/" + fileName,(b) =>
+                        ReadAssetInfo(url + "/" + fileName,false,(b) =>
                         {
-                            collections.AddRange(b);
+                            LoadedList.AddRange(b);
                         });
                     }
                 }
-                
             }
-
-            WorkerCount--;
-            while (WorkerCount > 0)
+            else
             {
-                await Task.Delay(100);
+                ReadAssetInfo(url, false,(b) =>
+                {
+                    LoadedList.AddRange(b);
+                });
             }
             
-            callback.Invoke(collections);
+            
+            await Task.Delay(10);
+            WorkerCount--;
+
+            if (!isFirst)
+            {
+                return;
+            }
+
+   
+            while (WorkerCount > 0)
+            {
+                await Task.Delay(10);
+            }
+            
+            callback.Invoke(LoadedList);
         }
 
         private static async void ReadTxt(JToken file,Action<VidaAssetCollection> callback)
@@ -332,6 +399,7 @@ namespace Vida.Editor
                 HttpResponseMessage response = await client.GetAsync(file["download_url"].ToString());
                 response.EnsureSuccessStatusCode();
 
+                
                 // Dosyanın içeriğini oku
                 string content = await response.Content.ReadAsStringAsync();
                 string[] lines = content.Split(";");
@@ -339,6 +407,7 @@ namespace Vida.Editor
                 if (lines.Length > 1)
                 {
                     collection = new VidaAssetCollection();
+                    collection.Templates = new List<string>();
                 }
 
 
@@ -406,20 +475,18 @@ namespace Vida.Editor
     }
     
     
+    [System.Serializable]
     public class VidaAssetCollection
     {
-        public string Name { get; set; }
+        public string Name;
         public List<string> Templates { get; set; }
         public string Info { get; set; }
         public string Location { get; set; }
         public string DownloadLocation { get; set; }
         public string Menu { get; set; }
         
+        
         public string[] separatedMenu => Menu.Split('/');
 
-        public VidaAssetCollection()
-        {
-            Templates = new List<string>();
-        }
     }
 }

@@ -13,22 +13,18 @@ namespace Vida.Editor
 {
     public class TemplatesWindow
     {
-        public static List<VidaAssetCollection> Collections { get; set; }
-        public static string[] SelectedTemplates = new string[15]; 
+        private static List<VidaAssetCollection> Collections => GithubConnector.AssetCollections;
+        private static string[] SelectedTemplates = new string[15]; 
 
         public void Draw(Vector2 windowSize)
         {
-            if (MainToolbar.ReloadNeeded)
-            {
-                Collections = GithubConnector.AssetCollections;
-                MainToolbar.ReloadNeeded = false;
-            }
-
             if (Collections == null)
             {
-                GithubConnector.ReadInfoFile();
-                Collections = GithubConnector.AssetCollections;
-                return;
+                if (Collections == null || Collections.Count <= 0)
+                {
+                    GithubConnector.ReadInfoFile(false);
+                    return;
+                }
             }
 
             if (Collections.Count > 0)
@@ -51,9 +47,7 @@ namespace Vida.Editor
         private void DrawTemplateLister(Vector2 windowSize,string[] items,int placement = 0,float totalWidth = 0,bool checkNext = true)
         {
             string mainTemplate = SelectedTemplates[0];
-            //string mainTemplate = EditorPrefs.GetString($"Lister_{0}");
             string selectedTemplate = SelectedTemplates[placement];
-            //string selectedTemplate = EditorPrefs.GetString($"Lister_{placement}");
             float boxWidth = placement > _maxWidths.Length - 1 ? _maxWidths[^1] : _maxWidths[placement];
             
             
