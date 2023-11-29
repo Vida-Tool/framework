@@ -14,11 +14,14 @@ namespace Vida.Editor
         [MenuItem("Vida/Menu")]
         private static void OpenWindow()
         {
-            VDefineSymbolInjector.Inject();
 
             var window = GetWindow<VidaFramework>();
             window.position = GUIHelper.GetEditorWindowRect().AlignCenter(900, 500);
             window.minSize = new Vector2(900, 500);
+            window.titleContent = new GUIContent("VIDA MENU");
+            
+            VDefineSymbolInjector.Inject();
+           
         }
 
 
