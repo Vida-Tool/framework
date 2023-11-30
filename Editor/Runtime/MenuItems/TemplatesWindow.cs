@@ -159,7 +159,12 @@ namespace Vida.Editor
                     GUILayout.Label("You can download this template by clicking the button below.");
                     GUILayout.Space(20);
                     VidaEditorGUI.Title("Information",true,TextAnchor.MiddleLeft);
-                    GUILayout.Label(collection.Info);
+                    
+                    var labels = collection.Info.Split("/n");
+                    foreach (var label in labels)
+                    {
+                        GUILayout.Label(label);
+                    }
                     GUILayout.Space(40);
                     // set flexible
                     GUILayout.FlexibleSpace();

@@ -1,4 +1,5 @@
-﻿using Sirenix.Utilities.Editor;
+﻿using Sirenix.OdinInspector;
+using Sirenix.Utilities.Editor;
 using UnityEditor;
 using UnityEngine;
 
@@ -30,13 +31,13 @@ namespace Vida.Editor
                     GUI.color = Color.white;
                     
                     
-                    if (SirenixEditorGUI.ToolbarButton(new GUIContent("Reset"),false))
+                    if (SirenixEditorGUI.ToolbarButton(SdfIconType.XSquareFill,false))
                     {
                         TemplatesWindow.ResetEditorPrefs();
                         GithubConnector.ResetConnection();
                         ReloadNeeded = true;
                     }
-                    if (SirenixEditorGUI.ToolbarButton(new GUIContent("Reload"),false))
+                    if (SirenixEditorGUI.ToolbarButton(SdfIconType.ArrowRepeat,false))
                     {
                         EditorPrefs.DeleteKey("Collections");
                         TemplatesWindow.ResetEditorPrefs();
