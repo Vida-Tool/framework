@@ -22,6 +22,7 @@ namespace Vida.Editor
             
             VDefineSymbolInjector.Inject();
            
+            GameFolderCreator.Create();
         }
 
 
