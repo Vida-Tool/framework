@@ -1,4 +1,8 @@
-﻿using UnityEditor;
+﻿using Sirenix.OdinInspector;
+using Sirenix.OdinInspector.Editor;
+using Sirenix.Utilities;
+using Sirenix.Utilities.Editor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Vida.Editor
@@ -6,6 +10,8 @@ namespace Vida.Editor
     public static class VidaEditorGUI
     {
         public static int DefaultFontSize = 12;
+        
+
         
         public static void Title(string title, bool horizontalLine,TextAnchor anchor = TextAnchor.MiddleCenter,int fontSize = 14)
         {

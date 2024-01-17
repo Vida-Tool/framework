@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using Sirenix.Utilities.Editor;
+using UnityEditor;
+using UnityEngine;
 
 namespace Vida.Editor
 {
@@ -21,6 +23,40 @@ namespace Vida.Editor
                 GUIStyle guiStyle = new GUIStyle(GUI.skin.label);
                 guiStyle.alignment = TextAnchor.MiddleCenter;
                 return guiStyle;
+            }
+        }
+        
+        private static GUIStyle toolbarButton;
+        private static GUIStyle toolbarButtonSelected;
+        
+        public static GUIStyle ToolbarButton
+        {
+            get
+            {
+                if (toolbarButton == null)
+                    toolbarButton = new GUIStyle(EditorStyles.toolbarButton)
+                    {
+                        fixedHeight = 0.0f,
+                        alignment = TextAnchor.MiddleCenter,
+                        stretchHeight = true,
+                        stretchWidth = false,
+                        margin = new RectOffset(0, 0, 0, 0)
+                    };
+                return toolbarButton;
+            }
+        }
+
+        /// <summary>Toolbar button selected style.</summary>
+        public static GUIStyle ToolbarButtonSelected
+        {
+            get
+            {
+                if (toolbarButtonSelected == null)
+                    toolbarButtonSelected = new GUIStyle(SirenixGUIStyles.ToolbarButton)
+                    {
+                        normal = new GUIStyle(SirenixGUIStyles.ToolbarButton).onNormal
+                    };
+                return toolbarButtonSelected;
             }
         }
     }

@@ -7,6 +7,7 @@ namespace Vida.Editor
 {
     public class MainToolbar
     {
+        public static string search = "";
         private string[] _keys =  new string[]{ "Home", "Templates", "Settings" };
         
         public void Draw(Vector2 windowSize)
@@ -27,6 +28,11 @@ namespace Vida.Editor
                         GUILayout.Space(10);
                     }
                     
+                    Rect rect = GUILayoutUtility.GetRect(200.0f, 30.0f, GUILayout.ExpandWidth(true));
+                    
+                    search = SirenixEditorGUI.SearchField(rect, search, false,"");
+                    
+                    
                     GUILayout.FlexibleSpace();
                     GUI.color = Color.white;
                     
@@ -44,6 +50,7 @@ namespace Vida.Editor
                         GithubConnector.ReadInfoFile();
                         ReloadNeeded = true;
                     }
+                    
                 }
                 SirenixEditorGUI.EndHorizontalToolbar();
             }
