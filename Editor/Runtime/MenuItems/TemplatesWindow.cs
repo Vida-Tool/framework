@@ -9,7 +9,7 @@ using Sirenix.Utilities.Editor;
 using UnityEditor;
 using UnityEngine;
 
-namespace Vida.Editor
+namespace Vida.Framework.Editor
 {
     public class VAsset
     {

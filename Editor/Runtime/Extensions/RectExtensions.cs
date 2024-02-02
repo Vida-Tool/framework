@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Vida.Editor
+namespace Vida.Framework.Editor
 {
     public static class RectExtensions
     {

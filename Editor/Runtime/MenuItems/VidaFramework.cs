@@ -1,7 +1,7 @@
 ﻿
 
 #if UNITY_EDITOR
-namespace Vida.Editor
+namespace Vida.Framework.Editor
 {
     using System;
     using UnityEngine;

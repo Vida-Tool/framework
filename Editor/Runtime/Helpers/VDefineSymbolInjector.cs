@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
 
-namespace Vida.Editor
+namespace Vida.Framework.Editor
 {
     public static class VDefineSymbolInjector
     {

@@ -1,4 +1,7 @@
-public static class VVersion
+namespace Vida.Framework.Editor
 {
-    public static string Version = "1.1.0";
+    public static class VVersion
+    {
+        public static string Version = "1.1.0";
+    }
 }

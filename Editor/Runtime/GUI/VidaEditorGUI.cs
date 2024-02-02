@@ -5,7 +5,7 @@ using Sirenix.Utilities.Editor;
 using UnityEditor;
 using UnityEngine;
 
-namespace Vida.Editor
+namespace Vida.Framework.Editor
 {
     public static class VidaEditorGUI
     {

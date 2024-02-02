@@ -14,7 +14,7 @@ using static System.IO.Directory;
 using static System.IO.Path;
 using static UnityEngine.Application;
 
-namespace Vida.Editor
+namespace Vida.Framework.Editor
 {
 
     public static class GithubConnector

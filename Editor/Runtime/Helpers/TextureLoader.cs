@@ -1,7 +1,7 @@
 ﻿using UnityEditor;
 using UnityEngine;
 
-namespace Vida.Editor
+namespace Vida.Framework.Editor
 {
     public class TextureLoader
     {
