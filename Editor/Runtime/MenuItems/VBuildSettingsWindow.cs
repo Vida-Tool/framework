@@ -51,6 +51,7 @@ namespace Vida.Framework
                 PlayerSettings.iOS.buildNumber = bundleCode.ToString();
 
                 Debug.Log("Build Settings updated. Version: " + version + ", Bundle Code: " + bundleCode);
+                
             }
             GUILayout.EndVertical();
 
