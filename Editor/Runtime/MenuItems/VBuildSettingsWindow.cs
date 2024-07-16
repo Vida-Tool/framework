@@ -34,7 +34,7 @@ namespace Vida.Framework
                 w.position = new Rect(xCenter, yCenter, 800, 400);
             }
 
-            var build = GetWindow<BuildPlayerWindow>();
+            var build = GetBuildPlayerWindow();
             if (build)
             {
                 DockNextTo(w, build);
@@ -99,7 +99,7 @@ namespace Vida.Framework
                 dock = !dock;
                 EditorPrefs.SetBool("VidaDocking", dock);
                 
-                var build = GetWindow<BuildPlayerWindow>();
+                var build = GetBuildPlayerWindow();
                 if (dock && build)
                 {
                     DockNextTo(this, build);
@@ -109,14 +109,33 @@ namespace Vida.Framework
 
             if (dock)
             {
-                DockNextTo(this, GetWindow<BuildPlayerWindow>());
+                DockNextTo(this, GetBuildPlayerWindow());
             }
             
             GUILayout.EndVertical();
         }
         
+        private static EditorWindow GetBuildPlayerWindow()
+        {
+            // Tüm açık EditorWindow'ları al
+            var windows = Resources.FindObjectsOfTypeAll<BuildPlayerWindow>();
+
+            // Her bir pencereyi kontrol et
+            foreach (var window in windows)
+            {
+                if (window.GetType().Name == "BuildPlayerWindow")
+                {
+                    return window;
+                }
+            }
+
+            // Eğer bulamazsak null döneriz
+            return null;
+        }
+        
         private static void DockNextTo(EditorWindow main, EditorWindow docked)
         {
+            if(docked == null) return; 
             // Get the position of the Build Settings window
             Rect dockedPos = docked.position;
             // Set the position of the VBuild Settings window next to the Build Settings window
