@@ -11,11 +11,10 @@ namespace Vida.Framework
         private void OnDestroy()
         {
             EditorApplication.projectChanged -= OnProjectChanged;
-            Debug.Log("xx");
         }
 
         [MenuItem("Vida/VBuild Settings")]
-        public static void ShowWindow()
+        public static void ShowBuildSettingsWindow()
         {
             var w = GetWindow<VBuildSettingsWindow>("VBuild Settings");
             w.bundleCode = PlayerSettings.Android.bundleVersionCode;
@@ -33,6 +32,12 @@ namespace Vida.Framework
             else if (w.position.x < 0 || w.position.y < 0)
             {
                 w.position = new Rect(xCenter, yCenter, 800, 400);
+            }
+
+            var build = GetWindow<BuildPlayerWindow>();
+            if (build)
+            {
+                DockNextTo(w, build);
             }
         }
         
@@ -81,12 +86,42 @@ namespace Vida.Framework
             
             if (GUILayout.Button("Reload"))
             {
-                var w = GetWindow<VBuildSettingsWindow>("VBuild Settings");
-                w.bundleCode = PlayerSettings.Android.bundleVersionCode;
-                w.version = PlayerSettings.bundleVersion;
+                this.bundleCode = PlayerSettings.Android.bundleVersionCode;
+                this.version = PlayerSettings.bundleVersion;
                 Debug.Log("Build Settings updated. Version: " + version + ", Bundle Code: " + bundleCode);
             }
+
+            bool dock = EditorPrefs.GetBool("VidaDocking", true);
+            // set color if dock is true
+            GUI.backgroundColor = dock ? Color.green : Color.red;
+            if (GUILayout.Button(dock ? "Docking : Enabled" : "Docking : Disabled"))
+            {
+                dock = !dock;
+                EditorPrefs.SetBool("VidaDocking", dock);
+                
+                var build = GetWindow<BuildPlayerWindow>();
+                if (dock && build)
+                {
+                    DockNextTo(this, build);
+                }
+            }
+            GUI.backgroundColor = Color.white;
+
+            if (dock)
+            {
+                DockNextTo(this, GetWindow<BuildPlayerWindow>());
+            }
+            
             GUILayout.EndVertical();
+        }
+        
+        private static void DockNextTo(EditorWindow main, EditorWindow docked)
+        {
+            // Get the position of the Build Settings window
+            Rect dockedPos = docked.position;
+            // Set the position of the VBuild Settings window next to the Build Settings window
+            Rect mainTargetPos = new Rect(dockedPos.x + dockedPos.width, dockedPos.y, main.position.width, main.position.height);
+            main.position = mainTargetPos;
         }
     }
 }
