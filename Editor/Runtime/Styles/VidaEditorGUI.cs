@@ -1,8 +1,4 @@
-﻿using Sirenix.OdinInspector;
-using Sirenix.OdinInspector.Editor;
-using Sirenix.Utilities;
-using Sirenix.Utilities.Editor;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace Vida.Framework.Editor
@@ -28,7 +24,7 @@ namespace Vida.Framework.Editor
                 return;
             
             GUILayout.Space(3f);
-            DrawSolidRect(rect.AlignBottom(1f), VidaGUIStyles.LightBorderColor);
+            DrawSolidRect(rect.AlignBottom(1f), VGUIStyle.LightBorderColor);
             GUILayout.Space(5f);
         }
         

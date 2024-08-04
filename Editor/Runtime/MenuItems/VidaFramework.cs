@@ -1,28 +1,69 @@
-﻿
-
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 namespace Vida.Framework.Editor
 {
     using System;
     using UnityEngine;
-    using Sirenix.Utilities.Editor;
     using UnityEditor;
-    using Sirenix.Utilities;
     
     public class VidaFramework : EditorWindow
     {
+        public static bool Connection { get; set; } = false;
+        public static bool AutoConnect { get; set; } = true;
+
+        private static VGitLogin _activeLoginWindow
+        {
+            get
+            {
+                if (EditorWindow.HasOpenInstances<VGitLogin>())
+                {
+                    return GetWindow<VGitLogin>();
+                }
+
+                return null;
+            }
+        }
+
         [MenuItem("Vida/Menu")]
         private static void OpenWindow()
         {
-
             var window = GetWindow<VidaFramework>();
-            window.position = GUIHelper.GetEditorWindowRect().AlignCenter(900, 500);
+         
+            Rect rect = window.position;
+            rect.width = 900;
+            rect.height = 500;
+            
+            float x = Screen.currentResolution.width / 2f - rect.width / 2;
+            float y = Screen.currentResolution.height / 2f - rect.height / 2;
+            rect.x = x;
+            rect.y = y;
+            
+            window.position = rect;
             window.minSize = new Vector2(900, 500);
-            window.titleContent = new GUIContent("VIDA MENU");
+            window.titleContent = new GUIContent("Menu","Framework menu");
             
             VDefineSymbolInjector.Inject();
-           
             GameFolderCreator.Create();
+            
+            Connection = GithubConnector.TryConnect();
+
+            EditorApplication.update += EditorUpdate;
+        }
+
+        public static void EditorUpdate()
+        {
+            if(Connection && _activeLoginWindow != null)
+            {
+                GetWindow<VidaFramework>().TryCloseGitLoginWindow();
+            }
+            
+        }
+        private void OnDestroy()
+        {
+            EditorApplication.update -= EditorUpdate;
+            if (_activeLoginWindow != null)
+            {
+                _activeLoginWindow.Close();
+            }
         }
 
 
@@ -37,9 +78,12 @@ namespace Vida.Framework.Editor
             var windowSize = position.size;
             windowSize.x -= 25;
             windowSize.y -= 25;
+
+            windowSize.x += _backgroundTexture.width * 0.07f;
+            windowSize.y += _backgroundTexture.height * 0.15f;
             
             float width = _backgroundTexture.width * 0.3f;
-            float height = _backgroundTexture.height * 0.3f;
+            float height = _backgroundTexture.height * 0.4f;
 
             Rect textureRect = new Rect(windowSize.x - width,windowSize.y - height,width,height);
             GUI.DrawTexture(textureRect,_backgroundTexture);
@@ -47,11 +91,14 @@ namespace Vida.Framework.Editor
 
         private void CreateGUI()
         {
-            _backgroundTexture = TextureLoader.GetTexture("vida-games.png");
-            bool connected = _home.TryConnect();
-            if (connected)
+            GithubConnector.TryConnect();
+            
+            _backgroundTexture = TextureLoader.GetTexture("vida-games-icon.png");
+            
+            if (Connection)
             {
                 GithubConnector.ReadInfoFile(false);
+                
             }
             
             TemplatesWindow.ResetEditorPrefs();
@@ -62,38 +109,51 @@ namespace Vida.Framework.Editor
             var windowSize = position.size;
             windowSize.x -= 10;
             
-            DrawBackgroundTexture();
-
-            VidaEditorGUI.Title("VIDA", true);
+            _mainToolbar.Draw(windowSize);
             GUILayout.Space(10);
-            
-            SirenixEditorGUI.BeginBox(GUILayout.Width(windowSize.x), GUILayout.Height(windowSize.y - 20));
-            {
-                _mainToolbar.Draw(windowSize);
-                GUILayout.Space(10);
 
-                if (_home.isConnectionSucceed)
+            if (Connection)
+            {
+                TryCloseGitLoginWindow();
+            }
+            else
+            {
+                if (_activeLoginWindow == null)
                 {
-                    switch (_mainToolbar.GetSelected())
-                    {
-                        case "Home":
-                            _home.Draw(windowSize);
-                            break;
-                        case "Templates":
-                            _templates.Draw(windowSize);
-                            break;
-                        case "Settings":
-                            break;
-                    }
+                    VGitLogin.ShowWindow(this);
                 }
                 else
                 {
-                    _home.Draw(windowSize);
+                    _activeLoginWindow.UpdatePosition(this);
                 }
-                
 
-            }   
-            SirenixEditorGUI.EndBox();
+                return;
+            }
+            //
+            
+            switch (_mainToolbar.GetSelected())
+            {
+                case "Home":
+                    _home.Draw();
+                    break;
+                case "Templates":
+                    _templates.Draw(windowSize);
+                    break;
+                case "Settings":
+                    break;
+            }
+            
+            DrawBackgroundTexture();
+
+        }
+
+        private void TryCloseGitLoginWindow()
+        {
+            if(!AutoConnect) return;
+            if (_activeLoginWindow != null)
+            {
+                _activeLoginWindow.Close();
+            }
         }
     }
 }

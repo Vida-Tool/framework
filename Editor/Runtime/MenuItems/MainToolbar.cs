@@ -1,6 +1,4 @@
-﻿using Sirenix.OdinInspector;
-using Sirenix.Utilities.Editor;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace Vida.Framework.Editor
@@ -12,49 +10,50 @@ namespace Vida.Framework.Editor
         
         public void Draw(Vector2 windowSize)
         {
-            SirenixEditorGUI.BeginBox(GUILayout.Width(windowSize.x), GUILayout.Height(20));
+            GUILayout.BeginHorizontal();
+            
+            Rect currentRect = GUILayoutUtility.GetRect(0,0);
+            GUI.Box(new Rect(currentRect.x,currentRect.y,windowSize.x+10,25),"",VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
+            
+            float width = windowSize.x * 0.3f;
+            int selected = GUILayout.Toolbar(GetSelectedIndex(), _keys,GUILayout.Width(width));
+            if (selected != GetSelectedIndex())
             {
-                SirenixEditorGUI.BeginHorizontalToolbar();
-                {
-                    for (int i = 0; i < _keys.Length; i++)
-                    {
-                        var key = _keys[i];
-                        GUI.color = IsSelected(i) ? Color.white : Color.gray;
-                        if (SirenixEditorGUI.ToolbarButton(new GUIContent(key),IsSelected(i)))
-                        {
-                            TemplatesWindow.ResetEditorPrefs();
-                            SetSelected(i);
-                        }
-                        GUILayout.Space(10);
-                    }
-                    
-                    Rect rect = GUILayoutUtility.GetRect(200.0f, 30.0f, GUILayout.ExpandWidth(true));
-                    
-                    search = SirenixEditorGUI.SearchField(rect, search, false,"");
-                    
-                    
-                    GUILayout.FlexibleSpace();
-                    GUI.color = Color.white;
-                    
-                    
-                    if (SirenixEditorGUI.ToolbarButton(SdfIconType.XSquareFill,false))
-                    {
-                        TemplatesWindow.ResetEditorPrefs();
-                        GithubConnector.ResetConnection();
-                        ReloadNeeded = true;
-                    }
-                    if (SirenixEditorGUI.ToolbarButton(SdfIconType.ArrowRepeat,false))
-                    {
-                        EditorPrefs.DeleteKey("Collections");
-                        TemplatesWindow.ResetEditorPrefs();
-                        GithubConnector.ReadInfoFile();
-                        ReloadNeeded = true;
-                    }
-                    
-                }
-                SirenixEditorGUI.EndHorizontalToolbar();
+                TemplatesWindow.ResetEditorPrefs();
+                SetSelected(selected);
             }
-            SirenixEditorGUI.EndBox();
+
+            if (GetSelectedIndex() == 1)
+            {
+                GUILayout.Space(10);
+                search = EditorGUILayout.TextField(search, GUILayout.Width(windowSize.x*0.2f));
+            }
+
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button("Reset"))
+            {
+                TemplatesWindow.ResetEditorPrefs();
+                GithubConnector.ResetConnection();
+                ReloadNeeded = true;
+            }
+            if(GUILayout.Button("Reload"))
+            {
+                EditorPrefs.DeleteKey("Collections");
+                TemplatesWindow.ResetEditorPrefs();
+                GithubConnector.ReadInfoFile();
+                ReloadNeeded = true;
+            }
+            if (GUILayout.Button("Login"))
+            {
+                VidaFramework.Connection = false;
+                VidaFramework.AutoConnect = false;
+                VGitLogin.ShowWindow(null);
+            }
+                
+            
+            GUILayout.EndHorizontal();
+
             
             GUI.color = Color.white;
         }
@@ -69,6 +68,10 @@ namespace Vida.Framework.Editor
         public string GetSelected()
         {
             return _keys[EditorPrefs.GetInt("MainToolbarSelectedIndex", 0)];
+        }
+        public int GetSelectedIndex()
+        {
+            return EditorPrefs.GetInt("MainToolbarSelectedIndex", 0);
         }
     
         private bool IsSelected(int index)

@@ -1,92 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using NUnit.Framework;
-using Sirenix.OdinInspector;
-using Sirenix.OdinInspector.Editor;
-using Sirenix.Utilities.Editor;
-using UnityEditor;
 using UnityEngine;
 
 namespace Vida.Framework.Editor
 {
-    public class VAsset
-    {
-        public string Template;
-        public VidaAssetCollection[] collections;
-    }
-    
     public class TemplatesWindow
     {
         private static List<VidaAssetCollection> Collections => GithubConnector.AssetCollections;
         private static string[] SelectedTemplates = new string[15];
-
-        [System.Serializable]
-        public class GroupedCollection
-        {
-            public string GroupTitle;
-            public List<VidaAssetCollection> AssetCollections;
-        }
-        public static List<GroupedCollection> GetGroupedCollections()
-        {
-            List<GroupedCollection> groupedCollections = new List<GroupedCollection>();
-
-            foreach (var assetCollection in Collections)
-            {
-                var groupTitle = assetCollection.separatedMenu.FirstOrDefault();
-
-                var existingGroup = groupedCollections.FirstOrDefault(group => group.GroupTitle == groupTitle);
-
-                if (existingGroup == null)
-                {
-                    var newGroup = new GroupedCollection
-                    {
-                        GroupTitle = groupTitle,
-                        AssetCollections = new List<VidaAssetCollection> { assetCollection }
-                    };
-                    groupedCollections.Add(newGroup);
-                }
-                else
-                {
-                    existingGroup.AssetCollections.Add(assetCollection);
-                }
-            }
-
-            return groupedCollections;
-        }
-        
-        public static void Init() // In Test
-        {
-            var asd = GetGroupedCollections();
-            foreach (var group in asd)
-            {
-                string title = group.GroupTitle;
-                string value = "\n";
-                foreach (var collection in group.AssetCollections)
-                {
-                    value += collection.Name + "\n";
-                }
-                Debug.Log(title + value);
-            }
- 
-        }
-        
         
         public void Draw(Vector2 windowSize)
         {
-            if (Collections == null)
+            if (Collections == null || Collections.Count <= 0)
             {
-                if (Collections == null || Collections.Count <= 0)
-                {
-                    GithubConnector.ReadInfoFile(false);
-                    return;
-                }
+                GithubConnector.ReadInfoFile(false);
+                return;
             }
 
             if (Collections.Count > 0)
             {
-                SirenixEditorGUI.BeginHorizontalToolbar();
+                GUILayout.BeginHorizontal();
                 {
                     // Get All Templates from _collections
                     var templates = Collections.SelectMany(x => x.Templates).Distinct().ToArray();
@@ -99,7 +33,7 @@ namespace Vida.Framework.Editor
                     
                     GUILayout.FlexibleSpace();
                 }
-                SirenixEditorGUI.EndHorizontalToolbar();
+                GUILayout.EndHorizontal();
             }
 
         }
@@ -114,9 +48,9 @@ namespace Vida.Framework.Editor
             float boxWidth = _maxWidths[0];
             string selectedTemplate = SelectedTemplates[0];
 
-            SirenixEditorGUI.BeginBox(GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
+            GUILayout.BeginVertical();
             {
-                sliderValue[0] = GUILayout.BeginScrollView(sliderValue[0], false, false, GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
+                sliderValue[0] = GUILayout.BeginScrollView(sliderValue[0], false, false, GUILayout.Width(boxWidth), GUILayout.Height(windowSize.y - 100));
                 {
                     GUILayout.BeginVertical(GUILayout.Height(items.Length * 25),GUILayout.Width(boxWidth));
                     {
@@ -127,7 +61,7 @@ namespace Vida.Framework.Editor
                             GUIStyle customButtonStyle = new GUIStyle(GUI.skin.button);
 
                             bool isSelected = selectedTemplate == item.Name;
-                            GUI.backgroundColor = isSelected ? VidaGUIStyles.MatteGray: VidaGUIStyles.LightGray;
+                            GUI.backgroundColor = isSelected ? VGUIStyle.MatteGray: VGUIStyle.LightGray;
                             
 
                             customButtonStyle.fontSize = item.Name.Length > 15 ? 11 : 12;
@@ -140,7 +74,7 @@ namespace Vida.Framework.Editor
                                 ResetEditorPrefs(1);
                             }
 
-                            GUI.backgroundColor = VidaGUIStyles.DefaultColor;
+                            GUI.backgroundColor = VGUIStyle.DefaultColor;
                             GUILayout.Space(5);
                         }
                     }
@@ -148,14 +82,13 @@ namespace Vida.Framework.Editor
                 }
                 GUILayout.EndScrollView();
             }
-            SirenixEditorGUI.EndBox();
+            GUILayout.EndVertical();
             
             RenderItemInfo(windowSize,selectedTemplate,1,boxWidth);
-
-            
             return true;
         }
-        
+
+
         
         public Vector2[] sliderValue = new Vector2[10];
         
@@ -165,44 +98,47 @@ namespace Vida.Framework.Editor
             string mainTemplate = SelectedTemplates[0];
             string selectedTemplate = SelectedTemplates[placement];
             float boxWidth = placement > _maxWidths.Length - 1 ? _maxWidths[^1] : _maxWidths[placement];
-            
 
+
+            Rect currentRect = GUILayoutUtility.GetRect(0,0);
+            GUI.Box(new Rect(currentRect.x,currentRect.y,boxWidth,windowSize.y-100),"",VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
             
-            SirenixEditorGUI.BeginBox(GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
+            sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
             {
-                sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
+                GUILayout.BeginVertical(GUILayout.Height(items.Length * 25), GUILayout.Width(boxWidth));
                 {
-                    GUILayout.BeginVertical(GUILayout.Height(items.Length * 25),GUILayout.Width(boxWidth));
+                    GUILayout.Space(10);
+
+                    foreach (var item in items)
                     {
-                        foreach (var item in items)
+                        GUIContent content = new GUIContent(item);
+                        content.tooltip = item;
+                        GUIStyle customButtonStyle = new GUIStyle(GUI.skin.button);
+
+                        bool isSelected = selectedTemplate == item;
+                        GUI.backgroundColor = isSelected ? VGUIStyle.MatteGray : VGUIStyle.LightGray;
+
+
+                        customButtonStyle.fontSize = item.Length > 15 ? 11 : 12;
+                        customButtonStyle.alignment = TextAnchor.MiddleCenter;
+                        // SET BUTTON ALIGNMENT TO CENTER
+                        if (GUILayout.Button(content, customButtonStyle, GUILayout.Height(25),
+                                GUILayout.Width(boxWidth - 10)))
                         {
-                            GUIContent content = new GUIContent(item);
-                            content.tooltip = item;
-                            GUIStyle customButtonStyle = new GUIStyle(GUI.skin.button);
-
-                            bool isSelected = selectedTemplate == item;
-                            GUI.backgroundColor = isSelected ? VidaGUIStyles.MatteGray: VidaGUIStyles.LightGray;
-                            
-
-                            customButtonStyle.fontSize = item.Length > 15 ? 11 : 12;
-                            customButtonStyle.alignment = TextAnchor.MiddleCenter;
-                            // SET BUTTON ALIGNMENT TO CENTER
-                            if (GUILayout.Button(content,customButtonStyle,GUILayout.Height(25),GUILayout.Width(boxWidth-10)))
-                            {
-                                SelectedTemplates[placement] = item;
-                                //EditorPrefs.SetString($"Lister_{placement}", item);
-                                ResetEditorPrefs(placement+1);
-                            }
-
-                            GUI.backgroundColor = VidaGUIStyles.DefaultColor;
-                            GUILayout.Space(5);
+                            SelectedTemplates[placement] = item;
+                            //EditorPrefs.SetString($"Lister_{placement}", item);
+                            ResetEditorPrefs(placement + 1);
                         }
+
+                        GUI.backgroundColor = VGUIStyle.DefaultColor;
+                        GUILayout.Space(5);
                     }
-                    GUILayout.EndVertical();
                 }
-                GUILayout.EndScrollView();
+                GUILayout.EndVertical();
             }
-            SirenixEditorGUI.EndBox();
+            GUILayout.EndScrollView();
+            GUILayout.Space(10);
+
 
             if (!checkNext)
             {
@@ -257,49 +193,48 @@ namespace Vida.Framework.Editor
             var collection = Collections.FirstOrDefault(x => x.Name == itemName);
             if (collection == null) return;
             
-            
             GUILayout.Space(25);
-
-
+            
             float start = totalWidth;
             float windowWidth = windowSize.x;
             float boxWidth = (windowWidth - start);
             boxWidth = Mathf.Clamp(boxWidth, 160, 400);
             
             
-            SirenixEditorGUI.BeginBox(GUILayout.Width(boxWidth),GUILayout.Height(400));
+            Rect currentRect = GUILayoutUtility.GetRect(0,0);
+            GUI.Box(new Rect(currentRect.x,currentRect.y,boxWidth,400),"",VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
+            
+            
+            sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement],false,false, GUILayout.Width(boxWidth), GUILayout.Height(400));
             {
-                sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement],false,false, GUILayout.Width(boxWidth), GUILayout.Height(400));
+                GUILayout.Space(10);
+                GUI.backgroundColor = VGUIStyle.SoftGreen;
+                VidaEditorGUI.Title(collection.Name,true);
+                GUI.backgroundColor = VGUIStyle.DefaultColor;
+                GUILayout.Space(20);
+                VidaEditorGUI.Title("Information",true,TextAnchor.MiddleLeft);
+                    
+                var labels = collection.Info.Split("/n");
+                foreach (var label in labels)
                 {
-                    GUILayout.Space(10);
-                    GUI.backgroundColor = VidaGUIStyles.SoftGreen;
-                    VidaEditorGUI.Title(collection.Name,true);
-                    GUI.backgroundColor = VidaGUIStyles.DefaultColor;
-                    GUILayout.Space(20);
-                    VidaEditorGUI.Title("Information",true,TextAnchor.MiddleLeft);
-                    
-                    var labels = collection.Info.Split("/n");
-                    foreach (var label in labels)
-                    {
-                        GUILayout.Label(label);
-                    }
-                    GUILayout.Space(40);
-                    // set flexible
-                    GUILayout.FlexibleSpace();
-                    
-                    VidaEditorGUI.Title("Actions",true,TextAnchor.MiddleLeft);
-                    GUILayout.Space(5);
-                    if (GUILayout.Button("Download",GUILayout.Height(30),GUILayout.Width(100)))
-                    {
-                        Download(itemName);
-                    }
-                    
-                    GUILayout.Space(20);
+                    GUILayout.Label(label);
                 }
-                GUILayout.EndScrollView();
-                
+                GUILayout.Space(40);
+                // set flexible
+                GUILayout.FlexibleSpace();
+                    
+                VidaEditorGUI.Title("Actions",true,TextAnchor.MiddleLeft);
+                GUILayout.Space(5);
+                if (GUILayout.Button("Download",GUILayout.Height(30),GUILayout.Width(100)))
+                {
+                    Download(itemName);
+                }
+                    
+                GUILayout.Space(20);
             }
-            SirenixEditorGUI.EndBox();
+            GUILayout.EndScrollView();
+            
+            
         }
 
         private void Download(string itemName)
@@ -313,9 +248,10 @@ namespace Vida.Framework.Editor
             for (int i = start; i < 10; i++)
             {
                 SelectedTemplates[i] = "";
-                //EditorPrefs.SetString($"Lister_{i}", "");
             }
         }
+        
+
     }
     
 }

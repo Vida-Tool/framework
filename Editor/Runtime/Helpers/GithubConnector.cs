@@ -30,13 +30,14 @@ namespace Vida.Framework.Editor
         #endregion
 
 
+
         public static int WorkerCount { get; set; } = 0;
         public static bool IsFileReading { get; set; } = false;
         public static bool IsFileDownloading { get; set; } = false;
         
 
         
-        
+
         public static async void SaveAssetCollections()
         {
             await Task.Delay(250);
@@ -144,7 +145,7 @@ namespace Vida.Framework.Editor
         
         
 
-        public static void DownloadStarter(Action<bool> callback = null)
+        public static void DownloadStarter(Action<bool> callback = null,Action<DateTime> dateTime = null)
         {
             if(IsFileDownloading) return;
             
@@ -206,6 +207,8 @@ namespace Vida.Framework.Editor
             IsFileDownloading = false;
             WorkerCount = 0;
         }
+        
+ 
 
         public static async void DownloadItem(string itemName)
         {
