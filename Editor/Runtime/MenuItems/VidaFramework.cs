@@ -130,18 +130,23 @@ namespace Vida.Framework.Editor
                 return;
             }
             //
-            
-            switch (_mainToolbar.GetSelected())
+
+            if (_activeLoginWindow == null)
             {
-                case "Home":
-                    _home.Draw();
-                    break;
-                case "Templates":
-                    _templates.Draw(windowSize);
-                    break;
-                case "Settings":
-                    break;
+                switch (_mainToolbar.GetSelected())
+                {
+                    case "Home":
+                        _home.Draw();
+                        break;
+                    case "Templates":
+                        _templates.Draw(windowSize);
+                        break;
+                    case "Settings":
+                        break;
+                }
             }
+            
+
             
             DrawBackgroundTexture();
 
