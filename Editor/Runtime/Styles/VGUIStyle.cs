@@ -5,6 +5,26 @@ namespace Vida.Framework.Editor
 {
     public static class VGUIStyle
     {
+        public static readonly Color TextPrimary = new Color();
+        public static readonly Color TextHeader = new Color();
+        public static readonly Color TextOther = new Color();
+        
+        
+
+
+        public static void ColorTester()
+        {
+            EditorGUILayout.BeginHorizontal();
+            
+            EditorGUILayout.ColorField("Primary", TextPrimary);
+            EditorGUILayout.ColorField("Header", TextHeader);
+            EditorGUILayout.ColorField("Header", TextOther);
+            
+            
+            EditorGUILayout.EndHorizontal();
+        }
+        
+        
         // Centered gui style
         public static GUIStyle Center
         {
@@ -87,7 +107,6 @@ namespace Vida.Framework.Editor
             if (_boxStyle == null)
             {
                 _boxStyle = new GUIStyle( GUI.skin.window );
-                //_boxStyle.normal.background = MakeTex( 2, 2, color );
             }
 
             return _boxStyle;

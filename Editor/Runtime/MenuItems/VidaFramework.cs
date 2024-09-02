@@ -42,7 +42,6 @@ namespace Vida.Framework.Editor
             window.titleContent = new GUIContent("Menu","Framework menu");
             
             VDefineSymbolInjector.Inject();
-            GameFolderCreator.Create();
             
             Connection = GithubConnector.TryConnect();
 
@@ -70,6 +69,7 @@ namespace Vida.Framework.Editor
         private MainToolbar _mainToolbar = new MainToolbar();
         private HomeWindow _home = new HomeWindow();
         private TemplatesWindow _templates = new TemplatesWindow();
+        private SettingsWindow _settings = new SettingsWindow();
 
         private Texture2D _backgroundTexture;
         
@@ -142,6 +142,7 @@ namespace Vida.Framework.Editor
                         _templates.Draw(windowSize);
                         break;
                     case "Settings":
+                        _settings.Draw();
                         break;
                 }
             }

@@ -7,6 +7,8 @@ namespace Vida.Framework.Editor
 {
     public class TemplatesWindow
     {
+        private VGuiStyleSO Style => VGuiStyleSO.Style;
+
         private static List<VidaAssetCollection> Collections => GithubConnector.AssetCollections;
         private static string[] SelectedTemplates = new string[15];
         
@@ -48,8 +50,11 @@ namespace Vida.Framework.Editor
             float boxWidth = _maxWidths[0];
             string selectedTemplate = SelectedTemplates[0];
 
-            GUILayout.BeginVertical();
+            GUIStyle background1 = VCustomGUI.GetBoxStyle(Style.Background);
+            GUILayout.Space(10);
+            GUILayout.BeginVertical(background1);
             {
+                GUILayout.Space(10);
                 sliderValue[0] = GUILayout.BeginScrollView(sliderValue[0], false, false, GUILayout.Width(boxWidth), GUILayout.Height(windowSize.y - 100));
                 {
                     GUILayout.BeginVertical(GUILayout.Height(items.Length * 25),GUILayout.Width(boxWidth));
@@ -61,7 +66,7 @@ namespace Vida.Framework.Editor
                             GUIStyle customButtonStyle = new GUIStyle(GUI.skin.button);
 
                             bool isSelected = selectedTemplate == item.Name;
-                            GUI.backgroundColor = isSelected ? VGUIStyle.MatteGray: VGUIStyle.LightGray;
+                            GUI.backgroundColor = isSelected ? Style.ButtonSelected: Style.Button;
                             
 
                             customButtonStyle.fontSize = item.Name.Length > 15 ? 11 : 12;
@@ -103,6 +108,7 @@ namespace Vida.Framework.Editor
             Rect currentRect = GUILayoutUtility.GetRect(0,0);
             GUI.Box(new Rect(currentRect.x,currentRect.y,boxWidth,windowSize.y-100),"",VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
             
+            
             sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
             {
                 GUILayout.BeginVertical(GUILayout.Height(items.Length * 25), GUILayout.Width(boxWidth));
@@ -116,7 +122,7 @@ namespace Vida.Framework.Editor
                         GUIStyle customButtonStyle = new GUIStyle(GUI.skin.button);
 
                         bool isSelected = selectedTemplate == item;
-                        GUI.backgroundColor = isSelected ? VGUIStyle.MatteGray : VGUIStyle.LightGray;
+                        GUI.backgroundColor = isSelected ? Style.ButtonSelected : Style.Button;
 
 
                         customButtonStyle.fontSize = item.Length > 15 ? 11 : 12;
@@ -202,33 +208,46 @@ namespace Vida.Framework.Editor
             
             
             Rect currentRect = GUILayoutUtility.GetRect(0,0);
-            GUI.Box(new Rect(currentRect.x,currentRect.y,boxWidth,400),"",VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
+            
+            GUIStyle background1 = VCustomGUI.GetDefaultBoxStyle(Style.Background);
+            GUI.Box(new Rect(currentRect.x,currentRect.y,boxWidth,400),String.Empty,background1);
             
             
             sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement],false,false, GUILayout.Width(boxWidth), GUILayout.Height(400));
             {
-                GUILayout.Space(10);
-                GUI.backgroundColor = VGUIStyle.SoftGreen;
-                VidaEditorGUI.Title(collection.Name,true);
-                GUI.backgroundColor = VGUIStyle.DefaultColor;
+
+                GUILayout.Space(15);
+                collection.Name.VTitle(true,Style.TextHeader,fontSize:18);
+                
+                
                 GUILayout.Space(20);
-                VidaEditorGUI.Title("Information",true,TextAnchor.MiddleLeft);
-                    
+                "Description".VTitle(true,Style.TextHeader,TextAnchor.MiddleLeft,14);
+                
+                
                 var labels = collection.Info.Split("/n");
                 foreach (var label in labels)
                 {
-                    GUILayout.Label(label);
+                    label.VLabel(Style.TextOther);
                 }
+                
                 GUILayout.Space(40);
-                // set flexible
                 GUILayout.FlexibleSpace();
                     
-                VidaEditorGUI.Title("Actions",true,TextAnchor.MiddleLeft);
+                "Actions".VTitle(true,Style.TextHeader,TextAnchor.MiddleLeft,14);
+                //VidaEditorGUI.Title("Actions",true,TextAnchor.MiddleLeft);
                 GUILayout.Space(5);
-                if (GUILayout.Button("Download",GUILayout.Height(30),GUILayout.Width(100)))
+                
+                GUILayout.BeginHorizontal();
                 {
-                    Download(itemName);
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Download",GUILayout.Height(30),GUILayout.Width(100)))
+                    {
+                        Download(itemName);
+                    }
+                    GUILayout.FlexibleSpace();
                 }
+                GUILayout.EndHorizontal();
+
                     
                 GUILayout.Space(20);
             }

@@ -18,5 +18,20 @@ namespace Vida.Framework.Editor
             
             return result;
         }
+        
+        public static GUILayoutOption ExpandHeight(bool expand = true)
+        {
+            GUILayoutOption result;
+            if (expand)
+            {
+                result = GUILayout.ExpandHeight(true);
+            }
+            else
+            {
+                result = GUILayout.ExpandHeight(false);
+            }
+            
+            return result;
+        }
     }
 }
