@@ -7,7 +7,7 @@
     "com.unity.mathematics": "1.2.6",
     "com.unity.cinemachine": "2.9.7",
     "com.unity.render-pipelines.universal" : "14.0.9",
-    "com.unity.mobile.notifications": ""
+    "com.unity.mobile.notifications": "2.3.2"
   },
 "repository": {
     "url": "https://github.com/Vida-Tool/framework.git",
