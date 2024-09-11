@@ -18,7 +18,7 @@ namespace Vida.Framework
 
         private void TryInit(Vector2 windowSize)
         {
-            if (DataReader.CodeData == null)
+            if (DataReader.CodeData == null || DataReader.CodeData.Count == 0)
             {
                 DataReader.LoadData();
                 return;
