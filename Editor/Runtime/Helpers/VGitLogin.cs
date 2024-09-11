@@ -54,7 +54,10 @@ namespace Vida.Framework.Editor
 
             if (autoLoginCount < 10)
             {
-                VidaFramework.Connection = GithubConnector.TryConnect();
+                _ = GithubConnector.TryConnect(b =>
+                {
+                    VidaFramework.Connection = b;
+                });
                 
                 autoLoginCount++;
             }
@@ -62,8 +65,10 @@ namespace Vida.Framework.Editor
         
         private void OnGUI()
         {
+
             if (!focusedWindow)
             {
+
                 Focus();
             }
             
@@ -79,14 +84,20 @@ namespace Vida.Framework.Editor
             {
                 if (GUILayout.Button("Close",GUILayout.Height(50)))
                 {
+                    VidaFramework.AutoConnect = true;
                     Close();
                 }
                 
                 if (GUILayout.Button("Login",GUILayout.Height(50)))
                 {
-                    VidaFramework.Connection = GithubConnector.TryConnect();
+                    _ = GithubConnector.TryConnect(b =>
+                    {
+                        VidaFramework.Connection = b;
+                    });
+                    
                     if (VidaFramework.Connection)
                     {
+                        VidaFramework.AutoConnect = true;
                         Close();
                     }
                 }

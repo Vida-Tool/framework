@@ -10,6 +10,7 @@ namespace Vida.Framework.Editor
         public static bool Connection { get; set; } = false;
         public static bool AutoConnect { get; set; } = true;
 
+        private static int _loadIconIndex = 0;
         private static VGitLogin _activeLoginWindow
         {
             get
@@ -24,10 +25,9 @@ namespace Vida.Framework.Editor
         }
 
         [MenuItem("Vida/Menu")]
-        private static void OpenWindow()
+        private static async void OpenWindow()
         {
             var window = GetWindow<VidaFramework>();
-         
             Rect rect = window.position;
             rect.width = 900;
             rect.height = 500;
@@ -42,9 +42,12 @@ namespace Vida.Framework.Editor
             window.titleContent = new GUIContent("Menu","Framework menu");
             
             VDefineSymbolInjector.Inject();
-            
-            Connection = GithubConnector.TryConnect();
 
+            _ = GithubConnector.TryConnect((b) =>
+            {
+                Connection = b;
+            });
+            
             EditorApplication.update += EditorUpdate;
         }
 
@@ -54,7 +57,6 @@ namespace Vida.Framework.Editor
             {
                 GetWindow<VidaFramework>().TryCloseGitLoginWindow();
             }
-            
         }
         private void OnDestroy()
         {
@@ -70,6 +72,7 @@ namespace Vida.Framework.Editor
         private HomeWindow _home = new HomeWindow();
         private TemplatesWindow _templates = new TemplatesWindow();
         private SettingsWindow _settings = new SettingsWindow();
+        private CodesWindow _codesWindow = new CodesWindow();
 
         private Texture2D _backgroundTexture;
         
@@ -91,14 +94,12 @@ namespace Vida.Framework.Editor
 
         private void CreateGUI()
         {
-            GithubConnector.TryConnect();
             
             _backgroundTexture = TextureLoader.GetTexture("vida-games-icon.png");
             
             if (Connection)
             {
                 GithubConnector.ReadInfoFile(false);
-                
             }
             
             TemplatesWindow.ResetEditorPrefs();
@@ -144,6 +145,9 @@ namespace Vida.Framework.Editor
                     case "Settings":
                         _settings.Draw();
                         break;
+                    case "Codes":
+                        _codesWindow.Draw(windowSize);
+                        return;
                 }
             }
             

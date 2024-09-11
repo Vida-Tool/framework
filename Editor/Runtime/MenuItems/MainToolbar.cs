@@ -1,12 +1,13 @@
 ﻿using UnityEditor;
 using UnityEngine;
+using Vida.Framework.CodeEditor;
 
 namespace Vida.Framework.Editor
 {
     public class MainToolbar
     {
         public static string search = "";
-        private string[] _keys =  new string[]{ "Home", "Templates", "Settings" };
+        private string[] _keys =  new string[]{ "Home", "Templates","Codes", "Settings" };
         
         public void Draw(Vector2 windowSize)
         {
@@ -42,6 +43,7 @@ namespace Vida.Framework.Editor
                 EditorPrefs.DeleteKey("Collections");
                 TemplatesWindow.ResetEditorPrefs();
                 GithubConnector.ReadInfoFile();
+                DataReader.LoadData();
                 ReloadNeeded = true;
             }
             if (GUILayout.Button("Login"))

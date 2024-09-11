@@ -32,7 +32,11 @@ namespace Vida.Framework.Editor
                             }
                             else
                             {
-                                VidaFramework.Connection = GithubConnector.TryConnect();
+                                _ = GithubConnector.TryConnect(b =>
+                                {
+                                    VidaFramework.Connection = b;
+                                });
+                                
                                 _label[1] = "Key is not valid";
                             }
                         });

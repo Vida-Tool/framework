@@ -77,25 +77,35 @@ namespace Vida.Framework.Editor
             EditorPrefs.DeleteKey("Collections");
             AssetCollections = null;
         }
-        
-        
-                
-        public static bool TryConnect()
+
+
+        private static bool _tasking;
+        public static async Task TryConnect(Action<bool> result)
         {
+            if(_tasking)
+            {
+                result = null;
+                return;
+            }
+            _tasking = true;
             UnityWebRequest www = UnityWebRequest.Get(githubRepoURL);
             www.SetRequestHeader("Authorization", authToken);
             www.SetRequestHeader("Accept", acceptToken);
             www.SendWebRequest();
-            while(!www.isDone) {}
+            while (!www.isDone)
+            {
+                await Task.Delay(10);
+            }
         
             if(www.result == UnityWebRequest.Result.Success)
             {
-                return true;
+                result.Invoke(true);
             }
             else
             {
-                return false;
+                result.Invoke(false);
             }
+            _tasking = false;
         }
 
 
@@ -122,10 +132,6 @@ namespace Vida.Framework.Editor
                 {
                     return;
                 }
-                else
-                {
-                }
-                
             }
 
             AssetCollections = null;
@@ -328,14 +334,13 @@ namespace Vida.Framework.Editor
 
 
         public static List<VidaAssetCollection> LoadedList;
-        private static async void ReadAssetInfo(string url,bool isFirst,Action<List<VidaAssetCollection>> callback)
+        public static async void ReadAssetInfo(string url,bool isFirst,Action<List<VidaAssetCollection>> callback)
         {
             WorkerCount++;
             LoadedList = new List<VidaAssetCollection>();
             
             UnityWebRequest www = UnityWebRequest.Get(url);
             www.SetRequestHeader("Authorization", authToken);
-            //www.SetRequestHeader("Accept", acceptToken);
             www.SendWebRequest();
             while (!www.isDone)
             {
@@ -401,7 +406,6 @@ namespace Vida.Framework.Editor
                 // Dosyayı indir
                 HttpResponseMessage response = await client.GetAsync(file["download_url"].ToString());
                 response.EnsureSuccessStatusCode();
-
                 
                 // Dosyanın içeriğini oku
                 string content = await response.Content.ReadAsStringAsync();
