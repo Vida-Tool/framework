@@ -68,29 +68,30 @@ namespace Vida.Framework
             GUI.Box(new Rect(currentRect.x, currentRect.y, boxWidth, windowSize.y - 40), "",
                 VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
 
-
             GUILayout.Space(5);
+            
             GUILayout.BeginVertical(GUILayout.Width(boxWidth - 15), GUILayout.Height(windowSize.y - 60));
-            for (int i = 0; i < items.Length; i++)
             {
-                GUILayout.Space(5);
-
-                if (GUILayout.Button(items[i], GUILayout.Height(30)))
+                for (int i = 0; i < items.Length; i++)
                 {
-                    _selectedCategory = i;
+                    GUILayout.Space(5);
+
+                    if (GUILayout.Button(items[i], GUILayout.Height(30)))
+                    {
+                        _selectedCategory = i;
+                    }
+                }
+
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Force Reload", GUILayout.Height(30)))
+                {
+                    _selectedCategory = -1;
+                    CodeEditorDrawer.Reset();
+                    DataReader.LoadData();
+                    _categories = null;
+                    _codeDatas = null;
                 }
             }
-
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Force Reload", GUILayout.Height(30)))
-            {
-                _selectedCategory = -1;
-                CodeEditorDrawer.Reset();
-                DataReader.LoadData();
-                _categories = null;
-                _codeDatas = null;
-            }
-
             GUILayout.EndVertical();
         }
 
@@ -107,21 +108,20 @@ namespace Vida.Framework
                 sliderValue[_selectedCategory] =
                     GUILayout.BeginScrollView(sliderValue[_selectedCategory], GUILayout.Width(window.x - 200),
                         GUILayout.Height(window.y - 60), GUILayout.ExpandWidth(true));
-                
-
-                for (int i = 0; i < datas.Length; i++)
                 {
-                    GUILayout.Label(datas[i].header, EditorStyles.boldLabel);
-                    GUILayout.BeginVertical(VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft), GUILayout.Width(400));
+                    for (int i = 0; i < datas.Length; i++)
                     {
-                        CodeEditorDrawer.DrawCodeLine(datas[i], window.x - 250);
+                        GUILayout.Label(datas[i].header, EditorStyles.boldLabel);
+                        GUILayout.BeginVertical(VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft), GUILayout.Width(400));
+                        {
+                            CodeEditorDrawer.DrawCodeLine(datas[i], window.x - 250);
+                            GUILayout.Space(20);
+                        }
+                        GUILayout.EndVertical();
                         GUILayout.Space(20);
-                    }
-                    GUILayout.EndVertical();
-                    GUILayout.Space(20);
-                    GUILayout.FlexibleSpace();
+                        GUILayout.FlexibleSpace();
+                    } 
                 }
-
                 GUILayout.EndScrollView();
             }
             GUILayout.EndVertical();
