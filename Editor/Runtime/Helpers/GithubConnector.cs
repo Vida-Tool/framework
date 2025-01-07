@@ -96,7 +96,7 @@ namespace Vida.Framework.Editor
             {
                 await Task.Delay(10);
             }
-        
+            Debug.Log(www.result);
             if(www.result == UnityWebRequest.Result.Success)
             {
                 result.Invoke(true);

@@ -13,6 +13,13 @@ namespace Vida.Framework.Editor
         public void Draw()
         {
             GUILayout.Space(20);
+
+            GitLogin();
+
+            if (VidaFramework.Connection == false) return;
+            
+            
+            GUILayout.Space(35);
             
             GUILayout.BeginHorizontal();
             {
@@ -47,6 +54,45 @@ namespace Vida.Framework.Editor
             }
             GUILayout.EndHorizontal();
             GUILayout.FlexibleSpace();
+        }
+
+        private void GitLogin()
+        {
+            GUILayout.Space(10);
+            
+            GUILayout.BeginVertical();
+            GUILayout.Label("Please login to your GitHub account to continue.",VGUIStyle.CenteredLabel);
+            GUILayout.Space(10);
+            ApiKey = GUILayout.TextField(ApiKey, 128,GUILayout.Height(40));
+            GUILayout.Space(10);
+
+            GUILayout.BeginHorizontal();
+            {
+                if (GUILayout.Button("Try Connect",GUILayout.Height(40)))
+                {
+                    VidaFramework.AutoConnect = true;
+                }
+                
+                if (GUILayout.Button("Login",GUILayout.Height(40)))
+                {
+                    _ = GithubConnector.TryConnect(b =>
+                    {
+                        VidaFramework.Connection = b;
+                    });
+                    
+                    if (VidaFramework.Connection)
+                    {
+                        VidaFramework.AutoConnect = true;
+                    }
+                }
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+        }
+        private string ApiKey
+        {
+            get => GithubConnector.apiKey;
+            set => GithubConnector.apiKey = value;
         }
 
 

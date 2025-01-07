@@ -38,7 +38,7 @@ namespace Vida.Framework.Editor
             rect.y = y;
             
             window.position = rect;
-            window.minSize = new Vector2(900, 500);
+            window.minSize = new Vector2(700, 300);
             window.titleContent = new GUIContent("Menu","Framework menu");
             
             VDefineSymbolInjector.Inject();
@@ -48,19 +48,11 @@ namespace Vida.Framework.Editor
                 Connection = b;
             });
             
-            EditorApplication.update += EditorUpdate;
         }
 
-        public static void EditorUpdate()
-        {
-            if(Connection && _activeLoginWindow != null)
-            {
-                GetWindow<VidaFramework>().TryCloseGitLoginWindow();
-            }
-        }
+
         private void OnDestroy()
         {
-            EditorApplication.update -= EditorUpdate;
             if (_activeLoginWindow != null)
             {
                 _activeLoginWindow.Close();
@@ -113,24 +105,11 @@ namespace Vida.Framework.Editor
             _mainToolbar.Draw(windowSize);
             GUILayout.Space(10);
 
-            if (Connection)
+            if (!Connection)
             {
-                TryCloseGitLoginWindow();
-            }
-            else
-            {
-                if (_activeLoginWindow == null)
-                {
-                    VGitLogin.ShowWindow(this);
-                }
-                else
-                {
-                    _activeLoginWindow.UpdatePosition(this);
-                }
-
+                _home.Draw();
                 return;
             }
-            //
 
             if (_activeLoginWindow == null)
             {
@@ -155,15 +134,6 @@ namespace Vida.Framework.Editor
             
             DrawBackgroundTexture();
 
-        }
-
-        private void TryCloseGitLoginWindow()
-        {
-            if(!AutoConnect) return;
-            if (_activeLoginWindow != null)
-            {
-                _activeLoginWindow.Close();
-            }
         }
     }
 }

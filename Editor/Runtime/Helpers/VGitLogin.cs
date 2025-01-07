@@ -22,7 +22,7 @@ namespace Vida.Framework.Editor
                 // öne al
                 _activeWindow.Focus();
                 _activeWindow._vidaFramework = vidaWindow;
-                _activeWindow.UpdatePosition(vidaWindow);
+                //_activeWindow.UpdatePosition(vidaWindow);
                 autoLoginCount = 0;
                 return _activeWindow;
             }
@@ -49,7 +49,7 @@ namespace Vida.Framework.Editor
         {
             if (EditorWindow.HasOpenInstances<VGitLogin>())
             {
-                GetWindow<VGitLogin>().UpdatePosition(null);
+                //GetWindow<VGitLogin>().UpdatePosition(null);
             }
 
             if (autoLoginCount < 10)
@@ -68,8 +68,7 @@ namespace Vida.Framework.Editor
 
             if (!focusedWindow)
             {
-
-                Focus();
+               // Focus();
             }
             
             GUILayout.Space(10);
