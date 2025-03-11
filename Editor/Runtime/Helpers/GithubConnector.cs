@@ -1,14 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using Unity.Plastic.Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Codice.Client.BaseCommands.Ls;
 using Unity.Plastic.Newtonsoft.Json;
 using static System.IO.Directory;
 using static System.IO.Path;

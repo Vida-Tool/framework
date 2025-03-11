@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Unity.Plastic.Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine.Networking;
-using Vida.Framework.Editor;
 
 namespace Vida.Framework.CodeEditor
 {
