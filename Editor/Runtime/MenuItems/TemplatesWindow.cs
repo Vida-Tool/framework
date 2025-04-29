@@ -16,7 +16,7 @@ namespace Vida.Framework.Editor
         {
             if (Collections == null || Collections.Count <= 0)
             {
-                GithubConnector.ReadInfoFile(false);
+                _ = GithubConnector.ReadAssetCollectionsAsync(false); // Asenkron çağrı
                 return;
             }
 
@@ -158,15 +158,15 @@ namespace Vida.Framework.Editor
             if (placement == 0)
             {
                 nextItems = Collections
-                    .Where(x => x.separatedMenu.Length > placement && x.Templates.Contains(mainTemplate))
-                    .Select(x => x.separatedMenu[placement]).Distinct().ToArray();
+                    .Where(x => x.SeparatedMenu.Length > placement && x.Templates.Contains(mainTemplate))
+                    .Select(x => x.SeparatedMenu[placement]).Distinct().ToArray();
             }
             // If placement is not 0, then we are looking for the selected template
             else
             {
                 nextItems = Collections
-                    .Where(x => x.separatedMenu.Length >= placement && x.Templates.Contains(mainTemplate) && x.separatedMenu.Contains(selectedTemplate))
-                    .Select(x => (x.separatedMenu.Length>placement?x.separatedMenu[placement] : x.Name)).Distinct().ToArray();
+                    .Where(x => x.SeparatedMenu.Length >= placement && x.Templates.Contains(mainTemplate) && x.SeparatedMenu.Contains(selectedTemplate))
+                    .Select(x => (x.SeparatedMenu.Length>placement?x.SeparatedMenu[placement] : x.Name)).Distinct().ToArray();
                
             }
             
@@ -178,7 +178,7 @@ namespace Vida.Framework.Editor
             else
             {
                 nextItems = Collections
-                    .Where(x => (x.separatedMenu[^1] == selectedTemplate))
+                    .Where(x => (x.SeparatedMenu[^1] == selectedTemplate))
                     .Select(x => x.Name).Distinct().ToArray();
                 
                 
@@ -258,7 +258,7 @@ namespace Vida.Framework.Editor
 
         private void Download(string itemName)
         {
-            GithubConnector.DownloadItem(itemName);
+            _=GithubConnector.DownloadItemAsync(itemName);
         }
         
         

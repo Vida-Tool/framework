@@ -101,7 +101,7 @@ namespace Vida.Framework
             CodeData[] datas = _codeDatas.Where(x => x.category == _categories[_selectedCategory]).ToArray();
             GUILayout.Space(20);
 
-            GUILayout.BeginVertical();
+            GUILayout.BeginVertical(GUILayout.Width(1000));
             {
                 GUILayout.Space(20);
 

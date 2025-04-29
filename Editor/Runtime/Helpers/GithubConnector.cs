@@ -1,72 +1,72 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Unity.Plastic.Newtonsoft.Json;
 using Unity.Plastic.Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Unity.Plastic.Newtonsoft.Json;
 using static System.IO.Directory;
 using static System.IO.Path;
 using static UnityEngine.Application;
 
 namespace Vida.Framework.Editor
 {
-
     public static class GithubConnector
     {
         public static List<VidaAssetCollection> AssetCollections;
 
-        
-        #region Private 
+        #region Private Members
         private static readonly string githubRepoURL = "https://api.github.com/repos/Vida-Tool/packages/contents/";
-        private static string authToken => $"Bearer {apiKey}";
+        private static string authToken => $"Bearer {ApiKey}";
         private static string acceptToken => "application/vnd.github.v3+json";
-        
         #endregion
-
-
 
         public static int WorkerCount { get; set; } = 0;
         public static bool IsFileReading { get; set; } = false;
         public static bool IsFileDownloading { get; set; } = false;
-        
+        private static bool _tasking;
 
-        
-
-        public static async void SaveAssetCollections()
+        /// <summary>
+        /// AssetCollections listesini JSON olarak EditorPrefs’e kaydeder.
+        /// </summary>
+        public static async Task SaveAssetCollectionsAsync()
         {
-            await Task.Delay(250);
-            while (IsFileReading && AssetCollections is { Count: <= 0 })
+            // Dosya okuma işlemi tamamlanana kadar bekle
+            while (IsFileReading && (AssetCollections == null || AssetCollections.Count <= 0))
             {
                 await Task.Delay(10);
             }
-            
             string json = JsonConvert.SerializeObject(AssetCollections);
             EditorPrefs.SetString("Collections", json);
         }
 
+        /// <summary>
+        /// EditorPrefs’den JSON olarak kaydedilmiş AssetCollections listesini okur.
+        /// </summary>
         public static List<VidaAssetCollection> LoadAssetCollections()
         {
             if (EditorPrefs.HasKey("Collections"))
             {
-                string json = EditorPrefs.GetString("Collections",null);
+                string json = EditorPrefs.GetString("Collections", null);
                 try
                 {
                     return JsonConvert.DeserializeObject<List<VidaAssetCollection>>(json);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Debug.LogError("LoadAssetCollections hatası: " + ex.Message);
                     return null;
                 }
             }
             return null;
         }
-        
-        
-        
+
+        /// <summary>
+        /// Bağlantı ayarlarını sıfırlar.
+        /// </summary>
         public static void ResetConnection()
         {
             WorkerCount = 0;
@@ -76,352 +76,313 @@ namespace Vida.Framework.Editor
             AssetCollections = null;
         }
 
-
-        private static bool _tasking;
-        public static async Task TryConnect(Action<bool> result)
+        /// <summary>
+        /// GitHub API’ye basit bir bağlantı testi yapar.
+        /// </summary>
+        /// <returns>Bağlantı başarılı ise true, değilse false döner.</returns>
+        public static async Task<bool> TryConnectAsync()
         {
-            if(_tasking)
-            {
-                result = null;
-                return;
-            }
+            if (_tasking)
+                return false;
+
             _tasking = true;
-            UnityWebRequest www = UnityWebRequest.Get(githubRepoURL);
-            www.SetRequestHeader("Authorization", authToken);
-            www.SetRequestHeader("Accept", acceptToken);
-            www.SendWebRequest();
-            while (!www.isDone)
+            using (UnityWebRequest www = UnityWebRequest.Get(githubRepoURL))
             {
-                await Task.Delay(10);
+                www.SetRequestHeader("Authorization", authToken);
+                www.SetRequestHeader("Accept", acceptToken);
+                www.SendWebRequest();
+
+                while (!www.isDone)
+                    await Task.Delay(10);
+
+                bool success = www.result == UnityWebRequest.Result.Success;
+                Debug.Log("TryConnectAsync result: " + www.result);
+                _tasking = false;
+                return success;
             }
-            Debug.Log(www.result);
-            if(www.result == UnityWebRequest.Result.Success)
-            {
-                result.Invoke(true);
-            }
-            else
-            {
-                result.Invoke(false);
-            }
-            _tasking = false;
         }
 
-
-    
-        public static void ReadInfoFile(bool force = true)
+        /// <summary>
+        /// Asset bilgilerini GitHub’dan okur ve AssetCollections listesini günceller.
+        /// </summary>
+        public static async Task ReadAssetCollectionsAsync(bool force = true)
         {
-            if(IsFileReading) return;
-            
-            if (WorkerCount.Equals(0) == false)
+            if (IsFileReading)
             {
-                Debug.Log("Worker is busy");
+                Debug.Log("Data is already being read.");
                 return;
             }
 
-            if (force)
+            if (!force && (AssetCollections = LoadAssetCollections()) is { Count: > 0 })
             {
-                
-            }
-            else
-            {
-                AssetCollections = LoadAssetCollections();
-
-                if (AssetCollections is { Count: > 0 })
-                {
-                    return;
-                }
+                return;
             }
 
             AssetCollections = null;
             WorkerCount = 0;
             IsFileReading = true;
-            
-            string url = githubRepoURL + $"Assets Info";
+            string url = githubRepoURL + "Assets Info";
             Debug.Log("VIDA: Initiating data read.");
-            ReadAssetInfo(url,true, (collections) =>
-            {
-                AssetCollections = collections;
-                IsFileReading = false;
-                SaveAssetCollections();
-                Debug.Log("VIDA: All data has been read.");
-            });
-        }
-        
-        
 
-        public static void DownloadStarter(Action<bool> callback = null,Action<DateTime> dateTime = null)
+            List<VidaAssetCollection> collections = await ReadAssetInfoAsync(url, true);
+            AssetCollections = collections;
+            IsFileReading = false;
+            await SaveAssetCollectionsAsync();
+            Debug.Log("All data has been read.");
+        }
+
+        /// <summary>
+        /// Starter.unitypackage dosyasını indirir ve Unity’ye import eder.
+        /// </summary>
+        /// <returns>İndirme başarılı ise true döner.</returns>
+        public static async Task<bool> DownloadStarterAsync()
         {
-            if(IsFileDownloading) return;
-            
-            if (WorkerCount.Equals(0) == false)
+            if (IsFileDownloading) return false;
+            if (WorkerCount != 0)
             {
                 Debug.Log("Worker is busy");
-                return;
+                return false;
             }
             WorkerCount = 1;
             IsFileDownloading = true;
-            
+
             string url = githubRepoURL + "/Starter.unitypackage";
-            UnityWebRequest request = UnityWebRequest.Get(url);
-            request.SetRequestHeader("Authorization", authToken);
-            request.SetRequestHeader("Accept", acceptToken);
-            
-            request.SendWebRequest().completed += operation =>
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
             {
+                request.SetRequestHeader("Authorization", authToken);
+                request.SetRequestHeader("Accept", acceptToken);
+                request.SendWebRequest();
+
+                while (!request.isDone)
+                    await Task.Delay(10);
+
                 if (request.result == UnityWebRequest.Result.Success)
                 {
                     JToken token = JToken.Parse(request.downloadHandler.text);
-                    ReadUnityPackage(token);
-                    callback?.Invoke(true);
+                    await ReadUnityPackageAsync(token);
+                    Debug.Log("Starter package downloaded successfully!");
+                    IsFileDownloading = false;
+                    WorkerCount = 0;
+                    return true;
                 }
                 else
                 {
                     Debug.LogError("Failed to download package. Error: " + request.error);
-                    callback?.Invoke(false);
                     IsFileDownloading = false;
                     WorkerCount = 0;
+                    return false;
                 }
-            };
+            }
         }
 
-        private static async void ReadUnityPackage(JToken token)
+        /// <summary>
+        /// İlgili JToken içindeki unitypackage dosyasını indirir ve Unity’ye import eder.
+        /// </summary>
+        private static async Task ReadUnityPackageAsync(JToken token)
         {
             string packagePath = "Temp/TempPackage.unitypackage";
 
             using (HttpClient client = new HttpClient())
             {
-                // Dosyayı indir
                 HttpResponseMessage response = await client.GetAsync(token["download_url"].ToString());
                 response.EnsureSuccessStatusCode();
-
-                // Dosyanın içeriğini oku
-                var content = await response.Content.ReadAsByteArrayAsync();
-                await System.IO.File.WriteAllBytesAsync(packagePath, content);
-                
-                AssetDatabase.ImportPackage(packagePath, true);
-                
-                // Dosyayı Unity'e import et
-                AssetDatabase.Refresh();
-                
-                Debug.Log("File Downloaded!");
+                byte[] content = await response.Content.ReadAsByteArrayAsync();
+                await File.WriteAllBytesAsync(packagePath, content);
             }
-                    
 
-            Debug.Log("Package downloaded successfully!");
-            IsFileDownloading = false;
-            WorkerCount = 0;
+            AssetDatabase.ImportPackage(packagePath, true);
+            AssetDatabase.Refresh();
+            Debug.Log("Package imported successfully!");
         }
-        
- 
 
-        public static async void DownloadItem(string itemName)
+        /// <summary>
+        /// Belirtilen itemName’e sahip koleksiyonu indirir.
+        /// </summary>
+        public static async Task DownloadItemAsync(string itemName)
         {
-            VidaAssetCollection collection = AssetCollections.Find(x => x.Name == itemName);
-            if(collection == null)
+            VidaAssetCollection collection = AssetCollections?.Find(x => x.Name == itemName);
+            if (collection == null)
             {
-                Debug.LogError("Collection not found");
+                Debug.LogError("Collection not found: " + itemName);
                 return;
             }
             WorkerCount++;
 
-            string url = githubRepoURL + $"{collection.Location}";
+            string url = githubRepoURL + collection.Location;
             string urlName = url.Split('/')[^1];
             url = url.Replace("/" + urlName, "");
-            await DownloadItem(url, collection.DownloadLocation,urlName);
-            
+            await DownloadItemAsync(url, collection.DownloadLocation, urlName);
             WorkerCount--;
         }
-        
-        private static async Task DownloadItem(string url, string downloadLocation,string targetName = "")
-        {
-            UnityWebRequest www = UnityWebRequest.Get(url);
-            www.SetRequestHeader("Authorization", authToken);
-            www.SetRequestHeader("Accept", acceptToken);
-            www.SendWebRequest();
-            while (!www.isDone)
-            {
-                await Task.Delay(100);
-            }
 
-            if (www.result == UnityWebRequest.Result.Success)
+        /// <summary>
+        /// Verilen URL’den, hedef klasöre (downloadLocation) dosyaları indirir.
+        /// </summary>
+        private static async Task DownloadItemAsync(string url, string downloadLocation, string targetName = "")
+        {
+            using (UnityWebRequest www = UnityWebRequest.Get(url))
             {
-                JToken files = JToken.Parse(www.downloadHandler.text);
-                foreach (var file in files)
+                www.SetRequestHeader("Authorization", authToken);
+                www.SetRequestHeader("Accept", acceptToken);
+                www.SendWebRequest();
+
+                while (!www.isDone)
+                    await Task.Delay(100);
+
+                if (www.result == UnityWebRequest.Result.Success)
                 {
-                    string itemName = file["name"].ToString();
-                    if(targetName.Length > 0 && itemName != targetName) continue;
-                    
-                    string itemType = file["type"].ToString();
-                    if (itemType == "dir")
+                    JToken files = JToken.Parse(www.downloadHandler.text);
+                    foreach (var file in files)
                     {
-                        // Bu bir klasördür, alt dizin içeriğini almak için aynı işlemi tekrarla
-                        string subdirectoryUrl = $"{url}/{itemName}";
-                        Task task = DownloadItem(subdirectoryUrl, downloadLocation+"/"+itemName,"");
-                    }
-                    else
-                    {
-                        if (itemName.Contains(".unitypackage"))
+                        string itemName = file["name"].ToString();
+                        if (!string.IsNullOrEmpty(targetName) && itemName != targetName)
+                            continue;
+
+                        string itemType = file["type"].ToString();
+                        if (itemType == "dir")
                         {
-                            ReadUnityPackage(file);
+                            string subdirectoryUrl = $"{url}/{itemName}";
+                            await DownloadItemAsync(subdirectoryUrl, Combine(downloadLocation, itemName));
                         }
                         else
                         {
-                            // Bu bir dosyadır, dosyayı indirmek için mevcut işlemleri kullanabilirsiniz.
-                            DownloadFile(file, downloadLocation);
+                            if (itemName.Contains(".unitypackage"))
+                            {
+                                await ReadUnityPackageAsync(file);
+                            }
+                            else
+                            {
+                                await DownloadFileAsync(file, downloadLocation);
+                            }
                         }
-                        
                     }
+                }
+                else
+                {
+                    Debug.LogError("DownloadItemAsync error: " + www.error);
                 }
             }
         }
-        
 
-
-
-        private static async void DownloadFile(JToken token,string downloadLocation)
+        /// <summary>
+        /// Dosya indirme işlemini gerçekleştirir; dosya daha önce indirilmişse işlemi atlar.
+        /// </summary>
+        private static async Task DownloadFileAsync(JToken token, string downloadLocation)
         {
-            // Dosya ismini al
             string fileName = token["name"].ToString();
-            
-            // Eğer indirmek için klasör yoksa oluştur
-            if (Exists(Combine(dataPath, downloadLocation)) == false)
+            string targetDir = Combine(dataPath, downloadLocation);
+
+            if (!Exists(targetDir))
             {
-                CreateDirectory(Combine(dataPath, downloadLocation));
+                CreateDirectory(targetDir);
             }
             else
             {
-                // Eger dosya zaten indirilmis ise indirme
-                string[] files = Directory.GetFiles(Combine(dataPath, downloadLocation));
-                foreach (string file in files)
+                foreach (string file in Directory.GetFiles(targetDir))
                 {
-                    var name = file.Split('/')[^1];
-                    // name 2 is splitted by \ and / so we need to check both
-                    var name2 = file.Split('\\')[^1];
-                    
-                    
-                    if (name == fileName || name2 == fileName)
+                    if (GetFileName(file) == fileName)
                     {
-                        Debug.Log("File already downloaded");
+                        Debug.Log("File already downloaded: " + fileName);
                         return;
                     }
                 }
             }
-            
+
             using (HttpClient client = new HttpClient())
             {
-                // Dosyayı indir
                 HttpResponseMessage response = await client.GetAsync(token["download_url"].ToString());
                 response.EnsureSuccessStatusCode();
-
-                // Dosyanın içeriğini oku
                 string content = await response.Content.ReadAsStringAsync();
-                
-
-                
-                // Dosyayı oluştur
                 string filePath = Combine(dataPath, downloadLocation, fileName);
-                System.IO.File.WriteAllText(filePath, content);
-
-                // Dosyayı Unity'e import et
+                await File.WriteAllTextAsync(filePath, content);
                 AssetDatabase.Refresh();
-                
-                Debug.Log("File Downloaded!");
+                Debug.Log("File downloaded: " + fileName);
             }
         }
 
-
-
-        public static List<VidaAssetCollection> LoadedList;
-        public static async void ReadAssetInfo(string url,bool isFirst,Action<List<VidaAssetCollection>> callback)
+        /// <summary>
+        /// GitHub üzerindeki asset bilgilerini okur.
+        /// </summary>
+        /// <param name="url">GitHub API URL’si</param>
+        /// <param name="isFirst">İlk çağrı mı?</param>
+        /// <returns>Okunan koleksiyon listesi</returns>
+        public static async Task<List<VidaAssetCollection>> ReadAssetInfoAsync(string url, bool isFirst = true)
         {
             WorkerCount++;
-            LoadedList = new List<VidaAssetCollection>();
-            
-            UnityWebRequest www = UnityWebRequest.Get(url);
-            www.SetRequestHeader("Authorization", authToken);
-            www.SendWebRequest();
-            while (!www.isDone)
-            {
-                await Task.Delay(10);
-            }
+            List<VidaAssetCollection> loadedList = new List<VidaAssetCollection>();
 
-            
-            if (www.result == UnityWebRequest.Result.Success)
+            using (UnityWebRequest www = UnityWebRequest.Get(url))
             {
-                JToken files  = JToken.Parse(www.downloadHandler.text);
+                www.SetRequestHeader("Authorization", authToken);
+                www.SendWebRequest();
 
-                foreach (var file in files)
+                while (!www.isDone)
+                    await Task.Delay(10);
+
+                if (www.result == UnityWebRequest.Result.Success)
                 {
-                    string fileName = file["name"].ToString();
-                    if (fileName.EndsWith(".txt"))
+                    JToken files = JToken.Parse(www.downloadHandler.text);
+                    foreach (var file in files)
                     {
-                        ReadTxt(file, (collection) =>
+                        string fileName = file["name"].ToString();
+                        if (fileName.EndsWith(".txt"))
                         {
-                            LoadedList.Add(collection);
-                        });
-                    }
-                    else if (file["type"].ToString() == "dir")
-                    {
-                        ReadAssetInfo(url + "/" + fileName,false,(b) =>
+                            VidaAssetCollection collection = await ReadTxtAsync(file);
+                            if (collection != null)
+                                loadedList.Add(collection);
+                        }
+                        else if (file["type"].ToString() == "dir")
                         {
-                            LoadedList.AddRange(b);
-                        });
+                            List<VidaAssetCollection> subList = await ReadAssetInfoAsync(url + "/" + fileName, false);
+                            loadedList.AddRange(subList);
+                        }
                     }
                 }
-            }
-            else
-            {
-                ReadAssetInfo(url, false,(b) =>
+                else
                 {
-                    LoadedList.AddRange(b);
-                });
+                    Debug.LogWarning("ReadAssetInfoAsync failed, retrying: " + www.error);
+                    List<VidaAssetCollection> retryList = await ReadAssetInfoAsync(url, false);
+                    loadedList.AddRange(retryList);
+                }
             }
-            
-            
-            await Task.Delay(10);
+
             WorkerCount--;
-
-            if (!isFirst)
+            if (isFirst)
             {
-                return;
+                while (WorkerCount > 0)
+                {
+                    await Task.Delay(10);
+                }
             }
-
-   
-            while (WorkerCount > 0)
-            {
-                await Task.Delay(10);
-            }
-            
-            callback.Invoke(LoadedList);
+            return loadedList;
         }
 
-        private static async void ReadTxt(JToken file,Action<VidaAssetCollection> callback)
+        /// <summary>
+        /// GitHub’dan indirilen metin dosyasını okur ve VidaAssetCollection nesnesine dönüştürür.
+        /// </summary>
+        private static async Task<VidaAssetCollection> ReadTxtAsync(JToken file)
         {
-            VidaAssetCollection collection = null;
             WorkerCount++;
+            VidaAssetCollection collection = new VidaAssetCollection();
+            collection.Templates = new List<string>();
+
             using (HttpClient client = new HttpClient())
             {
-                // Dosyayı indir
                 HttpResponseMessage response = await client.GetAsync(file["download_url"].ToString());
                 response.EnsureSuccessStatusCode();
-                
-                // Dosyanın içeriğini oku
                 string content = await response.Content.ReadAsStringAsync();
-                string[] lines = content.Split(";");
-
-                if (lines.Length > 1)
-                {
-                    collection = new VidaAssetCollection();
-                    collection.Templates = new List<string>();
-                }
-
+                string[] lines = content.Split(';');
 
                 foreach (string item in lines)
                 {
                     string line = item.Trim();
-                    if(line.Length <= 1) continue;
-                    int startIndex = line.IndexOf("{") + 1;
-                    int endIndex = line.IndexOf("}");
+                    if (line.Length <= 1) continue;
+
+                    int startIndex = line.IndexOf('{') + 1;
+                    int endIndex = line.IndexOf('}');
+                    if (startIndex <= 0 || endIndex <= startIndex)
+                        continue;
+
                     string result = line.Substring(startIndex, endIndex - startIndex);
                     if (line.StartsWith("Template:"))
                     {
@@ -448,50 +409,21 @@ namespace Vida.Framework.Editor
                         collection.DownloadLocation = result;
                     }
                 }
-
-                if (collection != null)
-                {
-                    callback.Invoke(collection);
-                }
-                
-                MainToolbar.ReloadNeeded = true;
             }
+            MainToolbar.ReloadNeeded = true;
             WorkerCount--;
+            return collection;
         }
-        
-        
 
-        
-        private static void Dir(params string[] dir)
+        /// <summary>
+        /// API anahtarını EditorPrefs üzerinden okur/yazar.
+        /// </summary>
+        public static string ApiKey
         {
-            var fullPath = dataPath;
-
-            foreach (var path in dir)
-            {
-                CreateDirectory(Combine(fullPath, path));
-            }
-        }
-        
-        public static string apiKey
-        {
-            get => EditorPrefs.GetString("GitApiKey","");
+            get => EditorPrefs.GetString("GitApiKey", "");
             set => EditorPrefs.SetString("GitApiKey", value);
         }
     }
-    
-    
-    [System.Serializable]
-    public class VidaAssetCollection
-    {
-        public string Name;
-        public List<string> Templates { get; set; }
-        public string Info { get; set; }
-        public string Location { get; set; }
-        public string DownloadLocation { get; set; }
-        public string Menu { get; set; }
-        
-        
-        public string[] separatedMenu => Menu.Split('/');
 
-    }
+
 }

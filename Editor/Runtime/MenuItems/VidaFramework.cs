@@ -43,11 +43,8 @@ namespace Vida.Framework.Editor
             
             VDefineSymbolInjector.Inject();
 
-            _ = GithubConnector.TryConnect((b) =>
-            {
-                Connection = b;
-            });
-            
+            bool result = await GithubConnector.TryConnectAsync();
+            Connection = result;
         }
 
 
@@ -91,7 +88,7 @@ namespace Vida.Framework.Editor
             
             if (Connection)
             {
-                GithubConnector.ReadInfoFile(false);
+                _= GithubConnector.ReadAssetCollectionsAsync(false);
             }
             
             TemplatesWindow.ResetEditorPrefs();

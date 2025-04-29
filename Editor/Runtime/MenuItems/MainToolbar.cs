@@ -42,7 +42,7 @@ namespace Vida.Framework.Editor
             {
                 EditorPrefs.DeleteKey("Collections");
                 TemplatesWindow.ResetEditorPrefs();
-                GithubConnector.ReadInfoFile();
+                _ = GithubConnector.ReadAssetCollectionsAsync(); // Asenkron çağrı
                 DataReader.LoadData();
                 ReloadNeeded = true;
             }

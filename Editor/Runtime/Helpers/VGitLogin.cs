@@ -1,130 +1,173 @@
-﻿using UnityEditor;
+﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEditor;
 using UnityEngine;
 
 namespace Vida.Framework.Editor
 {
     public class VGitLogin : EditorWindow
     {
-        public VidaFramework _vidaFramework;
-        private static int autoLoginCount = 0;
+        public VidaFramework vidaFramework;
+        private int autoLoginCount = 0;
+        private const int maxAutoLoginAttempts = 10;
+        private CancellationTokenSource autoLoginCancellation;
+        private bool isLoggingIn = false;
+        private string loginStatus = "Not connected.";
+
+        /// <summary>
+        /// VGitLogin penceresini gösterir ve gerekli ayarlamaları yapar.
+        /// </summary>
         public static VGitLogin ShowWindow(VidaFramework vidaWindow)
         {
-            if(vidaWindow == null)
+            if (vidaWindow == null)
             {
                 vidaWindow = GetWindow<VidaFramework>();
             }
-            
-            VGitLogin _activeWindow;
-            if(EditorWindow.HasOpenInstances<VGitLogin>())
+
+            VGitLogin activeWindow;
+            if (EditorWindow.HasOpenInstances<VGitLogin>())
             {
-                _activeWindow = GetWindow<VGitLogin>();
-                // öne al
-                _activeWindow.Focus();
-                _activeWindow._vidaFramework = vidaWindow;
-                //_activeWindow.UpdatePosition(vidaWindow);
-                autoLoginCount = 0;
-                return _activeWindow;
+                activeWindow = GetWindow<VGitLogin>();
+                activeWindow.Focus();
+                activeWindow.vidaFramework = vidaWindow;
+                activeWindow.ResetAutoLogin();
             }
             else
             {
-                _activeWindow = CreateInstance<VGitLogin>();
-                _activeWindow._vidaFramework = vidaWindow;
-                _activeWindow.titleContent = new GUIContent("Vida Git Login");
-                _activeWindow.UpdatePosition(vidaWindow);
-                _activeWindow.ShowPopup();
-                autoLoginCount = 0;
-                // on editor update
-                EditorApplication.update += MUpdate;
-                return _activeWindow;
+                activeWindow = CreateInstance<VGitLogin>();
+                activeWindow.vidaFramework = vidaWindow;
+                activeWindow.titleContent = new GUIContent("Vida Git Login");
+                activeWindow.UpdatePosition(vidaWindow);
+                activeWindow.ShowPopup();
+                activeWindow.ResetAutoLogin();
+                activeWindow.StartAutoLogin();
             }
+            return activeWindow;
         }
 
         private void OnDestroy()
         {
-            EditorApplication.update -= MUpdate;
+            autoLoginCancellation?.Cancel();
         }
 
-        private static void MUpdate()
+        /// <summary>
+        /// Otomatik giriş işlemini başlatır.
+        /// </summary>
+        private async void StartAutoLogin()
         {
-            if (EditorWindow.HasOpenInstances<VGitLogin>())
-            {
-                //GetWindow<VGitLogin>().UpdatePosition(null);
-            }
+            if (isLoggingIn)
+                return;
 
-            if (autoLoginCount < 10)
+            isLoggingIn = true;
+            autoLoginCancellation = new CancellationTokenSource();
+            autoLoginCount = 0;
+            loginStatus = "Attempting connection...";
+
+            while (autoLoginCount < maxAutoLoginAttempts)
             {
-                _ = GithubConnector.TryConnect(b =>
+                try
                 {
-                    VidaFramework.Connection = b;
-                });
-                
+                    bool result = await GithubConnector.TryConnectAsync();
+                    VidaFramework.Connection = result;
+
+                    if (result)
+                    {
+                        loginStatus = "Connection successful!";
+                        VidaFramework.AutoConnect = true;
+                        Close();
+                        return;
+                    }
+                    else
+                    {
+                        loginStatus = $"Attempt {autoLoginCount + 1}: Connection failed. Retrying...";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    loginStatus = $"Error: {ex.Message}";
+                }
+
                 autoLoginCount++;
+                try
+                {
+                    await Task.Delay(500, autoLoginCancellation.Token);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
             }
+            loginStatus = "Max attempts reached. Please try again.";
+            isLoggingIn = false;
         }
-        
+
+        /// <summary>
+        /// Otomatik giriş denemesi durumunu sıfırlar.
+        /// </summary>
+        private void ResetAutoLogin()
+        {
+            autoLoginCancellation?.Cancel();
+            autoLoginCount = 0;
+            isLoggingIn = false;
+            loginStatus = "Not connected.";
+        }
+
         private void OnGUI()
         {
-
-            if (!focusedWindow)
-            {
-               // Focus();
-            }
-            
             GUILayout.Space(10);
-            
             GUILayout.BeginVertical();
-            GUILayout.Label("Please login to your GitHub account to continue.",VGUIStyle.CenteredLabel);
+            GUILayout.Label("Please login to your GitHub account to continue.", VGUIStyle.CenteredLabel);
             GUILayout.Space(10);
-            ApiKey = GUILayout.TextField(ApiKey, 128,GUILayout.Height(50));
+
+            // API key giriş alanı
+            ApiKey = GUILayout.TextField(ApiKey, 128, GUILayout.Height(50));
+            GUILayout.Space(10);
+
+            // Durum mesajı
+            GUILayout.Label(loginStatus);
             GUILayout.Space(10);
 
             GUILayout.BeginHorizontal();
             {
-                if (GUILayout.Button("Close",GUILayout.Height(50)))
+                if (GUILayout.Button("Close", GUILayout.Height(50)))
                 {
                     VidaFramework.AutoConnect = true;
                     Close();
                 }
-                
-                if (GUILayout.Button("Login",GUILayout.Height(50)))
+
+                if (GUILayout.Button("Login", GUILayout.Height(50)))
                 {
-                    _ = GithubConnector.TryConnect(b =>
-                    {
-                        VidaFramework.Connection = b;
-                    });
-                    
-                    if (VidaFramework.Connection)
-                    {
-                        VidaFramework.AutoConnect = true;
-                        Close();
-                    }
+                    ResetAutoLogin();
+                    StartAutoLogin();
                 }
-            
-  
             }
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
         }
 
-        public void UpdatePosition(VidaFramework vidaFramework)
+        /// <summary>
+        /// Pencerenin pozisyonunu VidaFramework penceresine göre ayarlar.
+        /// </summary>
+        public void UpdatePosition(VidaFramework vidaWindow)
         {
-            if (vidaFramework == null)
+            if (vidaWindow == null)
             {
-                vidaFramework = _vidaFramework;
-                if (vidaFramework == null)
+                vidaWindow = this.vidaFramework;
+                if (vidaWindow == null)
                 {
                     return;
                 }
             }
             Focus();
-            this.position = new Rect(vidaFramework.position.x, vidaFramework.position.y, vidaFramework.position.width, vidaFramework.position.height);
+            this.position = new Rect(vidaWindow.position.x, vidaWindow.position.y, 
+                                     vidaWindow.position.width, vidaWindow.position.height);
         }
-        
-        
+
         private string ApiKey
         {
-            get => GithubConnector.apiKey;
-            set => GithubConnector.apiKey = value;
+            get => GithubConnector.ApiKey;
+            set => GithubConnector.ApiKey = value;
         }
     }
 }
