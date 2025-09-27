@@ -9,12 +9,12 @@
     "com.unity.render-pipelines.universal" : "14.0.9",
     "com.unity.mobile.notifications": "2.3.2",
     "com.unity.recorder" : "4.0.3",
-    "com.unity.2d.sprite": "1.0.0"
-    
+    "com.unity.2d.sprite": "1.0.0",
+    "com.coffee.ui-effect": "https://github.com/mob-sakai/UIEffect.git?path=Packages/src"
   },
 "repository": {
     "url": "https://github.com/Vida-Tool/framework.git",
     "type": "git",
-    "version": "1.1.1"
+    "version": "1.1.2"
   }
 }
