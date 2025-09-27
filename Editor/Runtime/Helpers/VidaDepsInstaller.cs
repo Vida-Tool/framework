@@ -6,7 +6,7 @@ using UnityEditor.PackageManager.Requests;
 public static class VidaDepsInstaller
 {
     const string DepId  = "com.coffee.ui-effect";
-    const string DepUrl = "https://github.com/mob-sakai/UIEffect.git?path=Packages";
+    const string DepUrl = "https://github.com/mob-sakai/UIEffect.git?path=Packages/src";
 
     [InitializeOnLoadMethod]
     static void AutoInstallOnce()
