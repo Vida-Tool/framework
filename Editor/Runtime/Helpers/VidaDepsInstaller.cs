@@ -41,7 +41,6 @@ public static class VidaDepsInstaller
             }
             if (has)
             {
-                UnityEngine.Debug.Log($"Package already present: {id}");
                 return;
             }
 
