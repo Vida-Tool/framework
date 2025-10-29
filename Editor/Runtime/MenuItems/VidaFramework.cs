@@ -59,6 +59,7 @@ namespace Vida.Framework.Editor
 
         private MainToolbar _mainToolbar = new MainToolbar();
         private HomeWindow _home = new HomeWindow();
+        private StarterWindow _starterWindow = new StarterWindow();
         private TemplatesWindow _templates = new TemplatesWindow();
         private SettingsWindow _settings = new SettingsWindow();
         private CodesWindow _codesWindow = new CodesWindow();
@@ -114,6 +115,9 @@ namespace Vida.Framework.Editor
                 {
                     case "Home":
                         _home.Draw();
+                        break;
+                    case "Starter":
+                        _starterWindow.Draw(windowSize);
                         break;
                     case "Templates":
                         _templates.Draw(windowSize);

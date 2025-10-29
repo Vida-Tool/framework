@@ -7,7 +7,7 @@ namespace Vida.Framework.Editor
     public class MainToolbar
     {
         public static string search = "";
-        private string[] _keys =  new string[]{ "Home", "Templates","Codes", "Settings" };
+        private string[] _keys =  new string[]{ "Home", "Starter", "Templates","Codes", "Settings" };
         
         public void Draw(Vector2 windowSize)
         {
@@ -24,7 +24,7 @@ namespace Vida.Framework.Editor
                 SetSelected(selected);
             }
 
-            if (GetSelectedIndex() == 1)
+            if (GetSelected() == "Templates")
             {
                 GUILayout.Space(10);
                 search = EditorGUILayout.TextField(search, GUILayout.Width(windowSize.x*0.2f));

@@ -20,6 +20,7 @@ namespace Vida.Framework.Editor
 
         #region Private Members
         private static readonly string githubRepoURL = "https://api.github.com/repos/Vida-Tool/packages/contents/";
+        private static readonly string githubCommitUrlTemplate = "https://api.github.com/repos/Vida-Tool/packages/commits?path={0}&per_page=1";
         private static string authToken => $"Bearer {ApiKey}";
         private static string acceptToken => "application/vnd.github.v3+json";
         #endregion
@@ -135,7 +136,18 @@ namespace Vida.Framework.Editor
         /// Starter.unitypackage dosyasını indirir ve Unity’ye import eder.
         /// </summary>
         /// <returns>İndirme başarılı ise true döner.</returns>
-        public static async Task<bool> DownloadStarterAsync()
+        /// <summary>
+        /// Varsayılan starter paketini indirir.
+        /// </summary>
+        public static Task<bool> DownloadStarterAsync()
+        {
+            return DownloadStarterAsync(null);
+        }
+
+        /// <summary>
+        /// Belirtilen GitHub API URL'sinden starter paketini indirir.
+        /// </summary>
+        public static async Task<bool> DownloadStarterAsync(string apiUrl)
         {
             if (IsFileDownloading) return false;
             if (WorkerCount != 0)
@@ -143,10 +155,57 @@ namespace Vida.Framework.Editor
                 Debug.Log("Worker is busy");
                 return false;
             }
+
             WorkerCount = 1;
             IsFileDownloading = true;
 
-            string url = githubRepoURL + "/Starter.unitypackage";
+            try
+            {
+                string url = string.IsNullOrEmpty(apiUrl)
+                    ? githubRepoURL + "Starter.unitypackage"
+                    : apiUrl;
+
+                using (UnityWebRequest request = UnityWebRequest.Get(url))
+                {
+                    request.SetRequestHeader("Authorization", authToken);
+                    request.SetRequestHeader("Accept", acceptToken);
+                    request.SendWebRequest();
+
+                    while (!request.isDone)
+                        await Task.Delay(10);
+
+                    if (request.result != UnityWebRequest.Result.Success)
+                    {
+                        Debug.LogError("Failed to download package. Error: " + request.error);
+                        return false;
+                    }
+
+                    JToken token = JToken.Parse(request.downloadHandler.text);
+                    string downloadUrl = token["download_url"]?.ToString();
+                    if (string.IsNullOrEmpty(downloadUrl))
+                    {
+                        Debug.LogError("Download url could not be resolved for starter package.");
+                        return false;
+                    }
+
+                    await ReadUnityPackageAsync(downloadUrl);
+                    Debug.Log("Starter package downloaded successfully!");
+                    return true;
+                }
+            }
+            finally
+            {
+                IsFileDownloading = false;
+                WorkerCount = 0;
+            }
+        }
+
+        /// <summary>
+        /// GitHub üzerindeki Starters klasöründeki paket listesini döner.
+        /// </summary>
+        public static async Task<List<StarterPackageInfo>> GetStarterPackagesAsync()
+        {
+            string url = githubRepoURL + "Starters";
             using (UnityWebRequest request = UnityWebRequest.Get(url))
             {
                 request.SetRequestHeader("Authorization", authToken);
@@ -156,22 +215,81 @@ namespace Vida.Framework.Editor
                 while (!request.isDone)
                     await Task.Delay(10);
 
-                if (request.result == UnityWebRequest.Result.Success)
+                if (request.result != UnityWebRequest.Result.Success)
                 {
-                    JToken token = JToken.Parse(request.downloadHandler.text);
-                    await ReadUnityPackageAsync(token);
-                    Debug.Log("Starter package downloaded successfully!");
-                    IsFileDownloading = false;
-                    WorkerCount = 0;
-                    return true;
+                    Debug.LogError("Failed to fetch starter packages. Error: " + request.error);
+                    throw new Exception("Starter paket listesi alınamadı.");
                 }
-                else
+
+                List<StarterPackageInfo> packages = new List<StarterPackageInfo>();
+                JArray items = JArray.Parse(request.downloadHandler.text);
+                foreach (JToken item in items)
                 {
-                    Debug.LogError("Failed to download package. Error: " + request.error);
-                    IsFileDownloading = false;
-                    WorkerCount = 0;
-                    return false;
+                    string type = item["type"]?.ToString();
+                    if (!string.Equals(type, "file", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string name = item["name"]?.ToString();
+                    if (string.IsNullOrEmpty(name) || !name.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string apiLocation = item["url"]?.ToString();
+                    string downloadUrl = item["download_url"]?.ToString();
+                    string path = item["path"]?.ToString();
+                    string version = StarterPackageInfo.ParseVersion(name);
+                    DateTime? lastUpdated = await GetFileLastUpdatedAsync(path);
+                    packages.Add(new StarterPackageInfo(name, version, apiLocation, downloadUrl, lastUpdated));
                 }
+
+                return packages;
+            }
+        }
+
+        private static async Task<DateTime?> GetFileLastUpdatedAsync(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            string escapedPath = UnityWebRequest.EscapeURL(path);
+            string url = string.Format(githubCommitUrlTemplate, escapedPath);
+
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                request.SetRequestHeader("Authorization", authToken);
+                request.SetRequestHeader("Accept", acceptToken);
+                request.SendWebRequest();
+
+                while (!request.isDone)
+                    await Task.Delay(10);
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogWarning($"Failed to fetch last updated information for {path}. Error: {request.error}");
+                    return null;
+                }
+
+                try
+                {
+                    JArray commits = JArray.Parse(request.downloadHandler.text);
+                    if (commits.Count == 0)
+                        return null;
+
+                    string dateString = commits[0]?["commit"]?["committer"]?["date"]?.ToString()
+                                        ?? commits[0]?["commit"]?["author"]?["date"]?.ToString();
+
+                    if (DateTime.TryParse(dateString, out DateTime parsed))
+                    {
+                        return parsed.ToLocalTime();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"Failed to parse last updated information for {path}. Error: {ex.Message}");
+                }
+
+                return null;
             }
         }
 
@@ -180,11 +298,23 @@ namespace Vida.Framework.Editor
         /// </summary>
         private static async Task ReadUnityPackageAsync(JToken token)
         {
+            string downloadUrl = token?["download_url"]?.ToString();
+            await ReadUnityPackageAsync(downloadUrl);
+        }
+
+        private static async Task ReadUnityPackageAsync(string downloadUrl)
+        {
+            if (string.IsNullOrEmpty(downloadUrl))
+            {
+                Debug.LogError("Download URL is empty.");
+                return;
+            }
+
             string packagePath = "Temp/TempPackage.unitypackage";
 
             using (HttpClient client = new HttpClient())
             {
-                HttpResponseMessage response = await client.GetAsync(token["download_url"].ToString());
+                HttpResponseMessage response = await client.GetAsync(downloadUrl);
                 response.EnsureSuccessStatusCode();
                 byte[] content = await response.Content.ReadAsByteArrayAsync();
                 await File.WriteAllBytesAsync(packagePath, content);
@@ -422,6 +552,43 @@ namespace Vida.Framework.Editor
         {
             get => EditorPrefs.GetString("GitApiKey", "");
             set => EditorPrefs.SetString("GitApiKey", value);
+        }
+    }
+
+    /// <summary>
+    /// GitHub Starters klasöründeki bir starter paketine ilişkin temel bilgileri temsil eder.
+    /// </summary>
+    public class StarterPackageInfo
+    {
+        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl, DateTime? lastUpdated)
+        {
+            Name = name;
+            Version = version;
+            ApiUrl = apiUrl;
+            DownloadUrl = downloadUrl;
+            LastUpdated = lastUpdated;
+        }
+
+        public string Name { get; }
+        public string Version { get; }
+        public string ApiUrl { get; }
+        public string DownloadUrl { get; }
+        public DateTime? LastUpdated { get; }
+
+        public static string ParseVersion(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+                return string.Empty;
+
+            string nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            if (string.IsNullOrEmpty(nameWithoutExtension))
+                return string.Empty;
+
+            string[] parts = nameWithoutExtension.Split('-');
+            if (parts.Length < 2)
+                return string.Empty;
+
+            return parts[^1];
         }
     }
 

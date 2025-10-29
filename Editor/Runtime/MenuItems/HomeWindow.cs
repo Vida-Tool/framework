@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -8,8 +7,6 @@ namespace Vida.Framework.Editor
 {
     public class HomeWindow
     {
-        private string[] _label = new[] { "...", "..." };
-
         /// <summary>
         /// Arayüzün çizimini gerçekleştirir.
         /// </summary>
@@ -29,24 +26,7 @@ namespace Vida.Framework.Editor
                 GUILayout.Space(20);
                 GUILayout.BeginVertical();
                 {
-                    GUILayout.BeginHorizontal();
-                    {
-                        MenuWithItem("Download Starter", _label[1], async () =>
-                        {
-                            if (VidaFramework.Connection)
-                            {
-                                bool result = await GithubConnector.DownloadStarterAsync();
-                                _label[1] = result ? "Success" : "Failed";
-                            }
-                            else
-                            {
-                                bool result = await GithubConnector.TryConnectAsync();
-                                VidaFramework.Connection = result;
-                                _label[1] = "Key is not valid";
-                            }
-                        });
-                    }
-                    GUILayout.EndHorizontal();
+                    GUILayout.Label("Starter paketleri artık Starter sekmesinden yönetilebilir.", EditorStyles.wordWrappedLabel);
                 }
                 GUILayout.EndVertical();
             }
@@ -109,37 +89,6 @@ namespace Vida.Framework.Editor
         {
             get => GithubConnector.ApiKey;
             set => GithubConnector.ApiKey = value;
-        }
-
-        /// <summary>
-        /// Belirtilen isimdeki buton ve yanında durum bilgisini gösterir.
-        /// </summary>
-        /// <param name="buttonName">Buton üzerinde görünecek metin.</param>
-        /// <param name="label">Butonun yanındaki durum bilgisi.</param>
-        /// <param name="buttonClick">Butona tıklandığında çalışacak metot.</param>
-        private void MenuWithItem(string buttonName, string label, Action buttonClick)
-        {
-            GUIStyle buttonStyle = new GUIStyle(GUIStyle.none);
-            GUILayout.BeginHorizontal(buttonStyle, GUILayout.Width(200), GUILayout.Height(50));
-            {
-                GUILayout.BeginVertical();
-                {
-                    if (GUILayout.Button(buttonName, GUILayout.Width(150), GUILayout.Height(35)))
-                    {
-                        buttonClick.Invoke();
-                    }
-
-                    GUILayout.Label("İndirildikten sonra eklenecek kısımlar seçilebilir.");
-                }
-                GUILayout.EndVertical();
-
-                GUILayout.Space(25);
-
-                GUI.color = label == "Success" ? Color.green : (label == "Failed" ? Color.red : Color.white);
-                GUILayout.Label(label, VGUIStyle.CenteredLabel, GUILayout.Height(35));
-                GUI.color = Color.white;
-            }
-            GUILayout.EndHorizontal();
         }
     }
 }
