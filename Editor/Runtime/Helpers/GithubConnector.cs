@@ -20,6 +20,7 @@ namespace Vida.Framework.Editor
 
         #region Private Members
         private static readonly string githubRepoURL = "https://api.github.com/repos/Vida-Tool/packages/contents/";
+        private static readonly string githubCommitUrlTemplate = "https://api.github.com/repos/Vida-Tool/packages/commits?path={0}&per_page=1";
         private static string authToken => $"Bearer {ApiKey}";
         private static string acceptToken => "application/vnd.github.v3+json";
         #endregion
@@ -234,11 +235,61 @@ namespace Vida.Framework.Editor
 
                     string apiLocation = item["url"]?.ToString();
                     string downloadUrl = item["download_url"]?.ToString();
+                    string path = item["path"]?.ToString();
                     string version = StarterPackageInfo.ParseVersion(name);
-                    packages.Add(new StarterPackageInfo(name, version, apiLocation, downloadUrl));
+                    DateTime? lastUpdated = await GetFileLastUpdatedAsync(path);
+                    packages.Add(new StarterPackageInfo(name, version, apiLocation, downloadUrl, lastUpdated));
                 }
 
                 return packages;
+            }
+        }
+
+        private static async Task<DateTime?> GetFileLastUpdatedAsync(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            string escapedPath = UnityWebRequest.EscapeURL(path);
+            string url = string.Format(githubCommitUrlTemplate, escapedPath);
+
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                request.SetRequestHeader("Authorization", authToken);
+                request.SetRequestHeader("Accept", acceptToken);
+                request.SendWebRequest();
+
+                while (!request.isDone)
+                    await Task.Delay(10);
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogWarning($"Failed to fetch last updated information for {path}. Error: {request.error}");
+                    return null;
+                }
+
+                try
+                {
+                    JArray commits = JArray.Parse(request.downloadHandler.text);
+                    if (commits.Count == 0)
+                        return null;
+
+                    string dateString = commits[0]?["commit"]?["committer"]?["date"]?.ToString()
+                                        ?? commits[0]?["commit"]?["author"]?["date"]?.ToString();
+
+                    if (DateTime.TryParse(dateString, out DateTime parsed))
+                    {
+                        return parsed.ToLocalTime();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"Failed to parse last updated information for {path}. Error: {ex.Message}");
+                }
+
+                return null;
             }
         }
 
@@ -509,18 +560,20 @@ namespace Vida.Framework.Editor
     /// </summary>
     public class StarterPackageInfo
     {
-        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl)
+        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl, DateTime? lastUpdated)
         {
             Name = name;
             Version = version;
             ApiUrl = apiUrl;
             DownloadUrl = downloadUrl;
+            LastUpdated = lastUpdated;
         }
 
         public string Name { get; }
         public string Version { get; }
         public string ApiUrl { get; }
         public string DownloadUrl { get; }
+        public DateTime? LastUpdated { get; }
 
         public static string ParseVersion(string fileName)
         {

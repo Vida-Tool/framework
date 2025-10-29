@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -23,8 +24,13 @@ namespace Vida.Framework.Editor
 
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal(EditorStyles.helpBox);
-            GUILayout.Label("Paket adı", GUILayout.Width(windowSize.x * 0.45f));
-            GUILayout.Label("Versiyon numarası", GUILayout.Width(windowSize.x * 0.2f));
+            float nameWidth = Mathf.Max(150f, windowSize.x * 0.35f);
+            float versionWidth = Mathf.Max(100f, windowSize.x * 0.2f);
+            float dateWidth = Mathf.Max(150f, windowSize.x * 0.25f);
+
+            GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
+            GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
+            GUILayout.Label("Son güncellenme", GUILayout.Width(dateWidth));
             GUILayout.FlexibleSpace();
             GUILayout.Label("İndirme", GUILayout.Width(100));
             GUILayout.EndHorizontal();
@@ -47,8 +53,12 @@ namespace Vida.Framework.Editor
                 foreach (StarterPackageInfo package in _packages)
                 {
                     GUILayout.BeginHorizontal(EditorStyles.helpBox);
-                    GUILayout.Label(package.Name, GUILayout.Width(windowSize.x * 0.45f));
-                    GUILayout.Label(string.IsNullOrEmpty(package.Version) ? "-" : package.Version, GUILayout.Width(windowSize.x * 0.2f));
+                    GUILayout.Label(package.Name, GUILayout.Width(nameWidth));
+                    GUILayout.Label(string.IsNullOrEmpty(package.Version) ? "-" : package.Version, GUILayout.Width(versionWidth));
+                    string updatedText = package.LastUpdated.HasValue
+                        ? package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm")
+                        : "-";
+                    GUILayout.Label(updatedText, GUILayout.Width(dateWidth));
                     GUILayout.FlexibleSpace();
                     if (GUILayout.Button("İndir", GUILayout.Width(100)))
                     {
