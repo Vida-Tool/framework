@@ -1,276 +1,239 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using UnityEditor;
 using UnityEngine;
 
 namespace Vida.Framework.Editor
 {
     public class TemplatesWindow
     {
-        private VGuiStyleSO Style => VGuiStyleSO.Style;
+        private enum TemplateCategory
+        {
+            VidaAssets = 0,
+            ThirdParty = 1
+        }
 
-        private static List<VidaAssetCollection> Collections => GithubConnector.AssetCollections;
-        private static string[] SelectedTemplates = new string[15];
-        
+        private const string VidaAssetsFolder = "VidaAssets";
+        private const string ThirdPartyFolder = "Third-Part-Assets";
+
+        private static bool _resetRequested;
+
+        private readonly Dictionary<TemplateCategory, List<StarterPackageInfo>> _packages = new();
+        private readonly Dictionary<TemplateCategory, string> _errors = new();
+        private readonly HashSet<TemplateCategory> _isLoading = new();
+        private readonly Dictionary<TemplateCategory, Vector2> _scrollPositions = new();
+
+        private TemplateCategory _activeCategory = TemplateCategory.VidaAssets;
+        private bool _isDownloading;
+
         public void Draw(Vector2 windowSize)
         {
-            if (Collections == null || Collections.Count <= 0)
+            if (_resetRequested)
             {
-                _ = GithubConnector.ReadAssetCollectionsAsync(false); // Asenkron çağrı
-                return;
+                ClearCachedData();
+                _resetRequested = false;
             }
 
-            if (Collections.Count > 0)
-            {
-                GUILayout.BeginHorizontal();
-                {
-                    // Get All Templates from _collections
-                    var templates = Collections.SelectMany(x => x.Templates).Distinct().ToArray();
-                    
-                    bool isSearching = DrawForSearchBar(windowSize);
-                    if (!isSearching)
-                    {
-                        DrawTemplateLister(windowSize,templates,0);
-                    }
-                    
-                    GUILayout.FlexibleSpace();
-                }
-                GUILayout.EndHorizontal();
-            }
-
+            DrawTabs(windowSize);
+            GUILayout.Space(10f);
+            DrawTable(windowSize);
         }
 
-        private bool DrawForSearchBar(Vector2 windowSize)
+        private void DrawTabs(Vector2 windowSize)
         {
-            var str = MainToolbar.search;
-            if(str.Length < 3) return false;
-            
-            var items = Collections.Where(x => x.Name.ToLower().Contains(str.ToLower()) || str.ToLower().Contains(x.Name.ToLower())).ToArray();
-
-            float boxWidth = _maxWidths[0];
-            string selectedTemplate = SelectedTemplates[0];
-
-            GUIStyle background1 = VCustomGUI.GetBoxStyle(Style.Background);
-            GUILayout.Space(10);
-            GUILayout.BeginVertical(background1);
+            string[] tabs = { "Vida Assets", "Third-Party Assets" };
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            int selected = GUILayout.Toolbar((int)_activeCategory, tabs, GUILayout.Width(Mathf.Min(windowSize.x - 40f, 320f)));
+            if (selected != (int)_activeCategory)
             {
-                GUILayout.Space(10);
-                sliderValue[0] = GUILayout.BeginScrollView(sliderValue[0], false, false, GUILayout.Width(boxWidth), GUILayout.Height(windowSize.y - 100));
+                _activeCategory = (TemplateCategory)selected;
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawTable(Vector2 windowSize)
+        {
+            TemplateCategory category = _activeCategory;
+            EnsurePackagesLoaded(category);
+
+            GUILayout.BeginVertical();
+            GUILayout.BeginHorizontal(EditorStyles.helpBox);
+
+            float nameWidth = Mathf.Max(150f, windowSize.x * 0.35f);
+            float versionWidth = Mathf.Max(100f, windowSize.x * 0.2f);
+            float dateWidth = Mathf.Max(150f, windowSize.x * 0.25f);
+
+            GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
+            GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
+            GUILayout.Label("Son güncellenme", GUILayout.Width(dateWidth));
+            GUILayout.FlexibleSpace();
+            GUILayout.Label("İndirme", GUILayout.Width(100f));
+            GUILayout.EndHorizontal();
+
+            if (_isLoading.Contains(category))
+            {
+                GUILayout.Label("Paketler yükleniyor...");
+            }
+            else if (_errors.TryGetValue(category, out string error) && !string.IsNullOrEmpty(error))
+            {
+                EditorGUILayout.HelpBox(error, MessageType.Error);
+                if (GUILayout.Button("Tekrar Dene", GUILayout.Width(120f)))
                 {
-                    GUILayout.BeginVertical(GUILayout.Height(items.Length * 25),GUILayout.Width(boxWidth));
-                    {
-                        foreach (var item in items)
-                        {
-                            GUIContent content = new GUIContent(item.Name);
-                            content.tooltip = item.Name;
-                            GUIStyle customButtonStyle = new GUIStyle(GUI.skin.button);
+                    _ = LoadPackagesAsync(category, true);
+                }
+            }
+            else if (_packages.TryGetValue(category, out List<StarterPackageInfo> packages) && packages.Count > 0)
+            {
+                string searchText = MainToolbar.search?.Trim();
+                List<StarterPackageInfo> filteredPackages = string.IsNullOrEmpty(searchText)
+                    ? packages
+                    : packages.Where(p => MatchesSearch(p, searchText)).ToList();
 
-                            bool isSelected = selectedTemplate == item.Name;
-                            GUI.backgroundColor = isSelected ? Style.ButtonSelected: Style.Button;
-                            
-
-                            customButtonStyle.fontSize = item.Name.Length > 15 ? 11 : 12;
-                            customButtonStyle.alignment = TextAnchor.MiddleCenter;
-                            // SET BUTTON ALIGNMENT TO CENTER
-                            if (GUILayout.Button(content,customButtonStyle,GUILayout.Height(25),GUILayout.Width(boxWidth-10)))
-                            {
-                                SelectedTemplates[0] = item.Name;
-                                //EditorPrefs.SetString($"Lister_{placement}", item);
-                                ResetEditorPrefs(1);
-                            }
-
-                            GUI.backgroundColor = VGUIStyle.DefaultColor;
-                            GUILayout.Space(5);
-                        }
-                    }
+                if (filteredPackages.Count == 0)
+                {
+                    GUILayout.Label("Arama kriterine uygun paket bulunamadı.");
                     GUILayout.EndVertical();
+                    return;
+                }
+
+                Vector2 scroll = _scrollPositions.TryGetValue(category, out Vector2 existing) ? existing : Vector2.zero;
+                scroll = GUILayout.BeginScrollView(scroll);
+                foreach (StarterPackageInfo package in filteredPackages)
+                {
+                    GUILayout.BeginHorizontal(EditorStyles.helpBox);
+                    GUILayout.Label(package.Name, GUILayout.Width(nameWidth));
+                    GUILayout.Label(string.IsNullOrEmpty(package.Version) ? "-" : package.Version, GUILayout.Width(versionWidth));
+                    string updatedText = package.LastUpdated.HasValue
+                        ? package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm")
+                        : "-";
+                    GUILayout.Label(updatedText, GUILayout.Width(dateWidth));
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("İndir", GUILayout.Width(100f)))
+                    {
+                        DownloadTemplate(package);
+                    }
+                    GUILayout.EndHorizontal();
                 }
                 GUILayout.EndScrollView();
+                _scrollPositions[category] = scroll;
             }
+            else
+            {
+                GUILayout.Label("Gösterilecek paket bulunamadı.");
+            }
+
             GUILayout.EndVertical();
-            
-            RenderItemInfo(windowSize,selectedTemplate,1,boxWidth);
-            return true;
         }
 
-
-        
-        public Vector2[] sliderValue = new Vector2[10];
-        
-        private float[] _maxWidths = new float[] { 100,110,160,160};
-        private void DrawTemplateLister(Vector2 windowSize,string[] items,int placement = 0,float totalWidth = 0,bool checkNext = true)
+        private void EnsurePackagesLoaded(TemplateCategory category)
         {
-            string mainTemplate = SelectedTemplates[0];
-            string selectedTemplate = SelectedTemplates[placement];
-            float boxWidth = placement > _maxWidths.Length - 1 ? _maxWidths[^1] : _maxWidths[placement];
-
-
-            Rect currentRect = GUILayoutUtility.GetRect(0,0);
-            GUI.Box(new Rect(currentRect.x,currentRect.y,boxWidth,windowSize.y-100),"",VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
-            
-            
-            sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement], false, false, GUILayout.Width(boxWidth),GUILayout.Height(windowSize.y - 100));
+            if (_packages.ContainsKey(category) || _isLoading.Contains(category))
             {
-                GUILayout.BeginVertical(GUILayout.Height(items.Length * 25), GUILayout.Width(boxWidth));
-                {
-                    GUILayout.Space(10);
-
-                    foreach (var item in items)
-                    {
-                        GUIContent content = new GUIContent(item);
-                        content.tooltip = item;
-                        GUIStyle customButtonStyle = new GUIStyle(GUI.skin.button);
-
-                        bool isSelected = selectedTemplate == item;
-                        GUI.backgroundColor = isSelected ? Style.ButtonSelected : Style.Button;
-
-
-                        customButtonStyle.fontSize = item.Length > 15 ? 11 : 12;
-                        customButtonStyle.alignment = TextAnchor.MiddleCenter;
-                        // SET BUTTON ALIGNMENT TO CENTER
-                        if (GUILayout.Button(content, customButtonStyle, GUILayout.Height(25),
-                                GUILayout.Width(boxWidth - 10)))
-                        {
-                            SelectedTemplates[placement] = item;
-                            //EditorPrefs.SetString($"Lister_{placement}", item);
-                            ResetEditorPrefs(placement + 1);
-                        }
-
-                        GUI.backgroundColor = VGUIStyle.DefaultColor;
-                        GUILayout.Space(5);
-                    }
-                }
-                GUILayout.EndVertical();
-            }
-            GUILayout.EndScrollView();
-            GUILayout.Space(10);
-
-
-            if (!checkNext)
-            {
-                RenderItemInfo(windowSize,selectedTemplate,placement+1,(boxWidth + totalWidth));
                 return;
             }
 
-            var nextItems = Array.Empty<string>();
-
-            // If placement is 0, then we are looking for the main template
-            if (placement == 0)
-            {
-                nextItems = Collections
-                    .Where(x => x.SeparatedMenu.Length > placement && x.Templates.Contains(mainTemplate))
-                    .Select(x => x.SeparatedMenu[placement]).Distinct().ToArray();
-            }
-            // If placement is not 0, then we are looking for the selected template
-            else
-            {
-                nextItems = Collections
-                    .Where(x => x.SeparatedMenu.Length >= placement && x.Templates.Contains(mainTemplate) && x.SeparatedMenu.Contains(selectedTemplate))
-                    .Select(x => (x.SeparatedMenu.Length>placement?x.SeparatedMenu[placement] : x.Name)).Distinct().ToArray();
-               
-            }
-            
-            
-            if (nextItems.Length > 0)
-            {
-                DrawTemplateLister(windowSize,nextItems,placement + 1,(totalWidth+boxWidth));
-            }
-            else
-            {
-                nextItems = Collections
-                    .Where(x => (x.SeparatedMenu[^1] == selectedTemplate))
-                    .Select(x => x.Name).Distinct().ToArray();
-                
-                
-                if (nextItems.Length > 0)
-                {
-                    DrawTemplateLister(windowSize,nextItems,placement + 1,(totalWidth + boxWidth),false);
-                }
-                else
-                {
-                    RenderItemInfo(windowSize,selectedTemplate,placement+1,(boxWidth + totalWidth));
-                }
-            }
+            _ = LoadPackagesAsync(category, false);
         }
-        
-        
-        private void RenderItemInfo(Vector2 windowSize,string itemName,int placement,float totalWidth)
+
+        private async Task LoadPackagesAsync(TemplateCategory category, bool force)
         {
-            var collection = Collections.FirstOrDefault(x => x.Name == itemName);
-            if (collection == null) return;
-            
-            GUILayout.Space(25);
-            
-            float start = totalWidth;
-            float windowWidth = windowSize.x;
-            float boxWidth = (windowWidth - start);
-            boxWidth = Mathf.Clamp(boxWidth, 160, 400);
-            
-            
-            Rect currentRect = GUILayoutUtility.GetRect(0,0);
-            
-            GUIStyle background1 = VCustomGUI.GetDefaultBoxStyle(Style.Background);
-            GUI.Box(new Rect(currentRect.x,currentRect.y,boxWidth,400),String.Empty,background1);
-            
-            
-            sliderValue[placement] = GUILayout.BeginScrollView(sliderValue[placement],false,false, GUILayout.Width(boxWidth), GUILayout.Height(400));
+            if (_isLoading.Contains(category))
             {
-
-                GUILayout.Space(15);
-                collection.Name.VTitle(true,Style.TextHeader,fontSize:18);
-                
-                
-                GUILayout.Space(20);
-                "Description".VTitle(true,Style.TextHeader,TextAnchor.MiddleLeft,14);
-                
-                
-                var labels = collection.Info.Split("/n");
-                foreach (var label in labels)
-                {
-                    label.VLabel(Style.TextOther);
-                }
-                
-                GUILayout.Space(40);
-                GUILayout.FlexibleSpace();
-                    
-                "Actions".VTitle(true,Style.TextHeader,TextAnchor.MiddleLeft,14);
-                //VidaEditorGUI.Title("Actions",true,TextAnchor.MiddleLeft);
-                GUILayout.Space(5);
-                
-                GUILayout.BeginHorizontal();
-                {
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("Download",GUILayout.Height(30),GUILayout.Width(100)))
-                    {
-                        Download(itemName);
-                    }
-                    GUILayout.FlexibleSpace();
-                }
-                GUILayout.EndHorizontal();
-
-                    
-                GUILayout.Space(20);
+                return;
             }
-            GUILayout.EndScrollView();
-            
-            
-        }
 
-        private void Download(string itemName)
-        {
-            _=GithubConnector.DownloadItemAsync(itemName);
-        }
-        
-        
-        public static void ResetEditorPrefs(int start = 0)
-        {
-            for (int i = start; i < 10; i++)
+            if (force)
             {
-                SelectedTemplates[i] = "";
+                _packages.Remove(category);
+            }
+
+            _isLoading.Add(category);
+            _errors.Remove(category);
+
+            try
+            {
+                string directory = category == TemplateCategory.VidaAssets ? VidaAssetsFolder : ThirdPartyFolder;
+                List<StarterPackageInfo> packages = await GithubConnector.GetUnityPackagesAsync(directory, force);
+                packages = packages
+                    .OrderByDescending(p => p.LastUpdated ?? DateTime.MinValue)
+                    .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                _packages[category] = packages;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Paketler yüklenirken hata oluştu: {ex.Message}");
+                _errors[category] = "Paket listesi alınamadı.";
+            }
+            finally
+            {
+                _isLoading.Remove(category);
+                EditorApplication.QueuePlayerLoopUpdate();
             }
         }
-        
 
+        private async void DownloadTemplate(StarterPackageInfo package)
+        {
+            if (_isDownloading || package == null)
+            {
+                return;
+            }
+
+            _isDownloading = true;
+            DownloadProgressWindow.Controller progressWindow = null;
+
+            try
+            {
+                progressWindow = DownloadProgressWindow.Show("İndirme", $"{package.Name} indiriliyor...");
+                progressWindow.SetIndeterminate();
+
+                bool result = await GithubConnector.DownloadStarterAsync(package.ApiUrl, progressWindow);
+                if (!result)
+                {
+                    EditorUtility.DisplayDialog("İndirme başarısız", $"{package.Name} indirilemedi.", "Tamam");
+                }
+            }
+            finally
+            {
+                progressWindow?.Close();
+                _isDownloading = false;
+                EditorApplication.QueuePlayerLoopUpdate();
+            }
+        }
+
+        private void ClearCachedData()
+        {
+            _packages.Clear();
+            _errors.Clear();
+            _isLoading.Clear();
+            _scrollPositions.Clear();
+            _isDownloading = false;
+        }
+
+        public static void ResetCachedData()
+        {
+            _resetRequested = true;
+        }
+
+        private static bool MatchesSearch(StarterPackageInfo package, string searchText)
+        {
+            if (package == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(searchText))
+            {
+                return true;
+            }
+
+            return (!string.IsNullOrEmpty(package.Name) && package.Name.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0)
+                   || (!string.IsNullOrEmpty(package.Version) && package.Version.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0)
+                   || (package.LastUpdated.HasValue && package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm").IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
     }
-    
 }

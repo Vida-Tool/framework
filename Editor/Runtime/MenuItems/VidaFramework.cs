@@ -7,8 +7,20 @@ namespace Vida.Framework.Editor
     
     public class VidaFramework : EditorWindow
     {
-        public static bool Connection { get; set; } = false;
-        public static bool AutoConnect { get; set; } = true;
+        private const string ConnectionSessionKey = "VidaFramework.ConnectionApproved";
+        private const string AutoConnectSessionKey = "VidaFramework.AutoConnect";
+
+        public static bool Connection
+        {
+            get => SessionState.GetBool(ConnectionSessionKey, false);
+            set => SessionState.SetBool(ConnectionSessionKey, value);
+        }
+
+        public static bool AutoConnect
+        {
+            get => SessionState.GetBool(AutoConnectSessionKey, true);
+            set => SessionState.SetBool(AutoConnectSessionKey, value);
+        }
 
         private static int _loadIconIndex = 0;
         private static VGitLogin _activeLoginWindow
@@ -43,8 +55,11 @@ namespace Vida.Framework.Editor
             
             VDefineSymbolInjector.Inject();
 
-            bool result = await GithubConnector.TryConnectAsync();
-            Connection = result;
+            if (!Connection)
+            {
+                bool result = await GithubConnector.TryConnectAsync();
+                Connection = result;
+            }
         }
 
 
@@ -87,12 +102,7 @@ namespace Vida.Framework.Editor
             
             _backgroundTexture = TextureLoader.GetTexture("vida-games-icon.png");
             
-            if (Connection)
-            {
-                _= GithubConnector.ReadAssetCollectionsAsync(false);
-            }
-            
-            TemplatesWindow.ResetEditorPrefs();
+            TemplatesWindow.ResetCachedData();
         }
 
         private void OnGUI()
