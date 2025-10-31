@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
@@ -29,6 +30,9 @@ namespace Vida.Framework.Editor
         public static bool IsFileReading { get; set; } = false;
         public static bool IsFileDownloading { get; set; } = false;
         private static bool _tasking;
+        private static readonly ConcurrentDictionary<string, Task<List<StarterPackageInfo>>> _unityPackageCache = new();
+        private static readonly ConcurrentDictionary<string, Task<DateTime?>> _lastUpdatedCache = new();
+        private static readonly System.Threading.SemaphoreSlim _commitRequestLimiter = new System.Threading.SemaphoreSlim(4);
 
         /// <summary>
         /// AssetCollections listesini JSON olarak EditorPrefs’e kaydeder.
@@ -75,6 +79,8 @@ namespace Vida.Framework.Editor
             IsFileDownloading = false;
             EditorPrefs.DeleteKey("Collections");
             AssetCollections = null;
+            _unityPackageCache.Clear();
+            _lastUpdatedCache.Clear();
         }
 
         /// <summary>
@@ -237,17 +243,50 @@ namespace Vida.Framework.Editor
         /// <summary>
         /// Belirtilen klasördeki tüm unitypackage dosyalarını döner.
         /// </summary>
-        public static Task<List<StarterPackageInfo>> GetUnityPackagesAsync(string relativeDirectory)
+        public static Task<List<StarterPackageInfo>> GetUnityPackagesAsync(string relativeDirectory, bool forceRefresh = false)
         {
             if (string.IsNullOrEmpty(relativeDirectory))
             {
                 throw new ArgumentException("relativeDirectory");
             }
 
-            return GetUnityPackagesInternalAsync(relativeDirectory);
+            return GetUnityPackagesInternalAsync(relativeDirectory, forceRefresh);
         }
 
-        private static async Task<List<StarterPackageInfo>> GetUnityPackagesInternalAsync(string relativeDirectory)
+        private static Task<List<StarterPackageInfo>> GetUnityPackagesInternalAsync(string relativeDirectory, bool forceRefresh)
+        {
+            string key = relativeDirectory.Trim('/');
+
+            if (forceRefresh)
+            {
+                _lastUpdatedCache.Clear();
+                Task<List<StarterPackageInfo>> refreshTask = CreateCachedFetchTask(key);
+                _unityPackageCache[key] = refreshTask;
+                return refreshTask;
+            }
+
+            return _unityPackageCache.GetOrAdd(key, _ => CreateCachedFetchTask(key));
+        }
+
+        private static Task<List<StarterPackageInfo>> CreateCachedFetchTask(string key)
+        {
+            return FetchAndTrackAsync();
+
+            async Task<List<StarterPackageInfo>> FetchAndTrackAsync()
+            {
+                try
+                {
+                    return await FetchUnityPackagesFromApiCoreAsync(key);
+                }
+                catch
+                {
+                    _unityPackageCache.TryRemove(key, out _);
+                    throw;
+                }
+            }
+        }
+
+        private static async Task<List<StarterPackageInfo>> FetchUnityPackagesFromApiCoreAsync(string relativeDirectory)
         {
             List<StarterPackageInfo> packages = new List<StarterPackageInfo>();
             string url = githubRepoURL + relativeDirectory.Trim('/');
@@ -273,6 +312,8 @@ namespace Vida.Framework.Editor
                 }
 
                 JArray items = JArray.Parse(request.downloadHandler.text);
+                List<Task<StarterPackageInfo>> pendingPackages = new List<Task<StarterPackageInfo>>();
+
                 foreach (JToken item in items)
                 {
                     string type = item["type"]?.ToString();
@@ -289,21 +330,61 @@ namespace Vida.Framework.Editor
                     if (!string.Equals(type, "file", StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    string name = item["name"]?.ToString();
-                    if (string.IsNullOrEmpty(name) || !name.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
-                        continue;
+                    Task<StarterPackageInfo> infoTask = CreatePackageInfoAsync(item);
+                    pendingPackages.Add(infoTask);
+                }
 
-                    string apiLocation = item["url"]?.ToString();
-                    string downloadUrl = item["download_url"]?.ToString();
-                    string path = item["path"]?.ToString();
-                    string version = StarterPackageInfo.ParseVersion(name);
-                    DateTime? lastUpdated = await GetFileLastUpdatedAsync(path);
-                    packages.Add(new StarterPackageInfo(name, version, apiLocation, downloadUrl, lastUpdated));
+                if (pendingPackages.Count > 0)
+                {
+                    StarterPackageInfo[] results = await Task.WhenAll(pendingPackages);
+                    foreach (StarterPackageInfo info in results)
+                    {
+                        if (info != null)
+                        {
+                            packages.Add(info);
+                        }
+                    }
                 }
             }
         }
 
-        private static async Task<DateTime?> GetFileLastUpdatedAsync(string path)
+        private static Task<DateTime?> GetFileLastUpdatedCachedAsync(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return Task.FromResult<DateTime?>(null);
+            }
+
+            return _lastUpdatedCache.GetOrAdd(path, FetchFileLastUpdatedInternalAsync);
+        }
+
+        private static async Task<StarterPackageInfo> CreatePackageInfoAsync(JToken item)
+        {
+            string name = item["name"]?.ToString();
+            if (string.IsNullOrEmpty(name) || !name.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            string apiLocation = item["url"]?.ToString();
+            string downloadUrl = item["download_url"]?.ToString();
+            string path = item["path"]?.ToString();
+            string version = StarterPackageInfo.ParseVersion(name);
+
+            DateTime? lastUpdated = null;
+            try
+            {
+                lastUpdated = await GetFileLastUpdatedCachedAsync(path);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"Failed to resolve last updated information for {path}. Error: {ex.Message}");
+            }
+
+            return new StarterPackageInfo(name, version, apiLocation, downloadUrl, lastUpdated);
+        }
+
+        private static async Task<DateTime?> FetchFileLastUpdatedInternalAsync(string path)
         {
             if (string.IsNullOrEmpty(path))
             {
@@ -317,37 +398,46 @@ namespace Vida.Framework.Editor
             {
                 request.SetRequestHeader("Authorization", authToken);
                 request.SetRequestHeader("Accept", acceptToken);
-                request.SendWebRequest();
 
-                while (!request.isDone)
-                    await Task.Delay(10);
-
-                if (request.result != UnityWebRequest.Result.Success)
-                {
-                    Debug.LogWarning($"Failed to fetch last updated information for {path}. Error: {request.error}");
-                    return null;
-                }
-
+                await _commitRequestLimiter.WaitAsync();
                 try
                 {
-                    JArray commits = JArray.Parse(request.downloadHandler.text);
-                    if (commits.Count == 0)
-                        return null;
+                    request.SendWebRequest();
 
-                    string dateString = commits[0]?["commit"]?["committer"]?["date"]?.ToString()
-                                        ?? commits[0]?["commit"]?["author"]?["date"]?.ToString();
+                    while (!request.isDone)
+                        await Task.Delay(10);
 
-                    if (DateTime.TryParse(dateString, out DateTime parsed))
+                    if (request.result != UnityWebRequest.Result.Success)
                     {
-                        return parsed.ToLocalTime();
+                        Debug.LogWarning($"Failed to fetch last updated information for {path}. Error: {request.error}");
+                        return null;
                     }
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogWarning($"Failed to parse last updated information for {path}. Error: {ex.Message}");
-                }
 
-                return null;
+                    try
+                    {
+                        JArray commits = JArray.Parse(request.downloadHandler.text);
+                        if (commits.Count == 0)
+                            return null;
+
+                        string dateString = commits[0]?["commit"]?["committer"]?["date"]?.ToString()
+                                            ?? commits[0]?["commit"]?["author"]?["date"]?.ToString();
+
+                        if (DateTime.TryParse(dateString, out DateTime parsed))
+                        {
+                            return parsed.ToLocalTime();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"Failed to parse last updated information for {path}. Error: {ex.Message}");
+                    }
+
+                    return null;
+                }
+                finally
+                {
+                    _commitRequestLimiter.Release();
+                }
             }
         }
 

@@ -20,7 +20,6 @@ namespace Vida.Framework.Editor
             int selected = GUILayout.Toolbar(GetSelectedIndex(), _keys,GUILayout.Width(width));
             if (selected != GetSelectedIndex())
             {
-                TemplatesWindow.ResetCachedData();
                 SetSelected(selected);
             }
 

@@ -88,9 +88,21 @@ namespace Vida.Framework.Editor
             }
             else if (_packages.TryGetValue(category, out List<StarterPackageInfo> packages) && packages.Count > 0)
             {
+                string searchText = MainToolbar.search?.Trim();
+                List<StarterPackageInfo> filteredPackages = string.IsNullOrEmpty(searchText)
+                    ? packages
+                    : packages.Where(p => MatchesSearch(p, searchText)).ToList();
+
+                if (filteredPackages.Count == 0)
+                {
+                    GUILayout.Label("Arama kriterine uygun paket bulunamadı.");
+                    GUILayout.EndVertical();
+                    return;
+                }
+
                 Vector2 scroll = _scrollPositions.TryGetValue(category, out Vector2 existing) ? existing : Vector2.zero;
                 scroll = GUILayout.BeginScrollView(scroll);
-                foreach (StarterPackageInfo package in packages)
+                foreach (StarterPackageInfo package in filteredPackages)
                 {
                     GUILayout.BeginHorizontal(EditorStyles.helpBox);
                     GUILayout.Label(package.Name, GUILayout.Width(nameWidth));
@@ -145,7 +157,7 @@ namespace Vida.Framework.Editor
             try
             {
                 string directory = category == TemplateCategory.VidaAssets ? VidaAssetsFolder : ThirdPartyFolder;
-                List<StarterPackageInfo> packages = await GithubConnector.GetUnityPackagesAsync(directory);
+                List<StarterPackageInfo> packages = await GithubConnector.GetUnityPackagesAsync(directory, force);
                 packages = packages
                     .OrderByDescending(p => p.LastUpdated ?? DateTime.MinValue)
                     .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
@@ -205,6 +217,23 @@ namespace Vida.Framework.Editor
         public static void ResetCachedData()
         {
             _resetRequested = true;
+        }
+
+        private static bool MatchesSearch(StarterPackageInfo package, string searchText)
+        {
+            if (package == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(searchText))
+            {
+                return true;
+            }
+
+            return (!string.IsNullOrEmpty(package.Name) && package.Name.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0)
+                   || (!string.IsNullOrEmpty(package.Version) && package.Version.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0)
+                   || (package.LastUpdated.HasValue && package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm").IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
         }
     }
 }
