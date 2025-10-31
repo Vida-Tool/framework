@@ -110,10 +110,16 @@ namespace Vida.Framework.Editor
             {
                 return;
             }
+
             _isLoading = true;
+            DownloadProgressWindow.Controller progressWindow = null;
+
             try
             {
-                bool result = await GithubConnector.DownloadStarterAsync(package.ApiUrl);
+                progressWindow = DownloadProgressWindow.Show("İndirme", $"{package.Name} indiriliyor...");
+                progressWindow.SetIndeterminate();
+
+                bool result = await GithubConnector.DownloadStarterAsync(package.ApiUrl, progressWindow);
                 if (!result)
                 {
                     EditorUtility.DisplayDialog("İndirme başarısız", $"{package.Name} indirilemedi.", "Tamam");
@@ -121,6 +127,7 @@ namespace Vida.Framework.Editor
             }
             finally
             {
+                progressWindow?.Close();
                 _isLoading = false;
                 EditorApplication.QueuePlayerLoopUpdate();
             }

@@ -20,7 +20,7 @@ namespace Vida.Framework.Editor
             int selected = GUILayout.Toolbar(GetSelectedIndex(), _keys,GUILayout.Width(width));
             if (selected != GetSelectedIndex())
             {
-                TemplatesWindow.ResetEditorPrefs();
+                TemplatesWindow.ResetCachedData();
                 SetSelected(selected);
             }
 
@@ -34,14 +34,14 @@ namespace Vida.Framework.Editor
 
             if (GUILayout.Button("Reset"))
             {
-                TemplatesWindow.ResetEditorPrefs();
+                TemplatesWindow.ResetCachedData();
                 GithubConnector.ResetConnection();
                 ReloadNeeded = true;
             }
             if(GUILayout.Button("Reload"))
             {
                 EditorPrefs.DeleteKey("Collections");
-                TemplatesWindow.ResetEditorPrefs();
+                TemplatesWindow.ResetCachedData();
                 _ = GithubConnector.ReadAssetCollectionsAsync(); // Asenkron çağrı
                 DataReader.LoadData();
                 ReloadNeeded = true;
