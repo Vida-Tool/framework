@@ -15,8 +15,8 @@ namespace Vida.Framework.Editor
             ThirdParty = 1
         }
 
-        private const string VidaAssetsFolder = "VidaAssets";
-        private const string ThirdPartyFolder = "Third-Part-Assets";
+        private const string VidaAssetsFolder = "Vida-Assets";
+        private const string ThirdPartyFolder = "Third-Party-Assets";
 
         private static bool _resetRequested;
 
