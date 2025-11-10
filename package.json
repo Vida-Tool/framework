@@ -6,8 +6,7 @@
   "dependencies": {
     "com.unity.mathematics": "1.*",
     "com.unity.mobile.notifications": "2.*",
-    "com.unity.recorder": "4.*",
-    "com.unity.2d.sprite": "1.*"
+    "com.unity.recorder": "4.*"
   },
 "repository": {
     "url": "https://github.com/Vida-Tool/framework.git",
