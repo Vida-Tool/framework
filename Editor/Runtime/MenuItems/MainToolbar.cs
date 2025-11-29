@@ -16,7 +16,7 @@ namespace Vida.Framework.Editor
             Rect currentRect = GUILayoutUtility.GetRect(0,0);
             GUI.Box(new Rect(currentRect.x,currentRect.y,windowSize.x+10,25),"",VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
             
-            float width = windowSize.x * 0.3f;
+            float width = Mathf.Max(windowSize.x * 0.6f, 400f);
             int selected = GUILayout.Toolbar(GetSelectedIndex(), _keys,GUILayout.Width(width));
             if (selected != GetSelectedIndex())
             {
@@ -40,6 +40,8 @@ namespace Vida.Framework.Editor
             if(GUILayout.Button("Reload"))
             {
                 TemplatesWindow.ResetCachedData();
+                StarterWindow.ResetCachedData();
+                SdkWindow.ResetCachedData();
                 GithubConnector.ClearUnityPackageCache();
                 DataReader.LoadData();
                 ReloadNeeded = true;

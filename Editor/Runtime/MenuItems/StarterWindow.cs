@@ -13,9 +13,20 @@ namespace Vida.Framework.Editor
         private string _errorMessage;
         private Vector2 _scroll;
         private List<StarterPackageInfo> _packages;
+        private static bool _resetRequested;
 
         public void Draw(Vector2 windowSize)
         {
+            if (_resetRequested)
+            {
+                _initialized = false;
+                _isLoading = false;
+                _errorMessage = null;
+                _scroll = Vector2.zero;
+                _packages = null;
+                _resetRequested = false;
+            }
+
             if (!_initialized && !_isLoading)
             {
                 _initialized = true;
@@ -131,6 +142,11 @@ namespace Vida.Framework.Editor
                 _isLoading = false;
                 EditorApplication.QueuePlayerLoopUpdate();
             }
+        }
+
+        public static void ResetCachedData()
+        {
+            _resetRequested = true;
         }
     }
 }
