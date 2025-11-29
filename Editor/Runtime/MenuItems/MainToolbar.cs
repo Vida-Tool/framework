@@ -7,7 +7,7 @@ namespace Vida.Framework.Editor
     public class MainToolbar
     {
         public static string search = "";
-        private string[] _keys =  new string[]{ "Home", "Starter", "Templates","Codes", "Settings" };
+        private string[] _keys =  new string[]{ "Home", "Starter", "SDK", "Templates","Codes", "Settings" };
         
         public void Draw(Vector2 windowSize)
         {

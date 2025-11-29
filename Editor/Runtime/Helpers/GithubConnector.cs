@@ -173,6 +173,14 @@ namespace Vida.Framework.Editor
         }
 
         /// <summary>
+        /// GitHub üzerindeki Sdk klasöründeki paket listesini döner.
+        /// </summary>
+        public static Task<List<StarterPackageInfo>> GetSdkPackagesAsync()
+        {
+            return GetUnityPackagesAsync("Sdk");
+        }
+
+        /// <summary>
         /// Belirtilen klasördeki tüm unitypackage dosyalarını döner.
         /// </summary>
         public static Task<List<StarterPackageInfo>> GetUnityPackagesAsync(string relativeDirectory, bool forceRefresh = false)
