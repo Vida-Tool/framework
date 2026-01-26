@@ -23,11 +23,6 @@ namespace Vida.Framework
         [field:SerializeField] public Color Button { get; set; } = new Color(0.82f, 0.82f, 0.82f, 1f);
         [field:SerializeField] public Color ButtonSelected { get; set; } = new Color(0.5f, 0.5f, 0.5f, 1f);
 
-        [field:SerializeField] public Color StarterListItemBackground { get; set; } = new Color32(32, 32, 32, 65);
-        [field:SerializeField] public Color SdkListItemBackground { get; set; } = new Color32(32, 32, 32, 65);
-        [field:SerializeField] public Color TemplatesVidaListItemBackground { get; set; } = new Color32(32, 32, 32, 65);
-        [field:SerializeField] public Color TemplatesThirdPartyListItemBackground { get; set; } = new Color32(24, 24, 24, 80);
-
         
         private static VGuiStyleSO _style;
         public static VGuiStyleSO Style
