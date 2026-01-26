@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using UnityEngine;
 
 namespace Vida.Framework.Editor
 {
@@ -19,6 +20,16 @@ namespace Vida.Framework.Editor
 
     public static class StarterPackageInfoExtensions
     {
+        public static void GetColumnWidths(float windowWidth, out float categoryWidth, out float nameWidth, out float versionWidth, out float dateWidth, out float downloadWidth)
+        {
+            float available = Mathf.Max(300f, windowWidth - 40f);
+            categoryWidth = available * 0.18f;
+            nameWidth = available * 0.32f;
+            versionWidth = available * 0.15f;
+            dateWidth = available * 0.25f;
+            downloadWidth = available * 0.10f;
+        }
+
         public static PackageDisplayInfo GetDisplayInfo(this StarterPackageInfo package)
         {
             return ParseDisplayInfo(package?.Name);

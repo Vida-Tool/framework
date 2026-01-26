@@ -35,17 +35,15 @@ namespace Vida.Framework.Editor
 
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal(EditorStyles.helpBox);
-            float categoryWidth = Mathf.Max(120f, windowSize.x * 0.2f);
-            float nameWidth = Mathf.Max(150f, windowSize.x * 0.3f);
-            float versionWidth = Mathf.Max(100f, windowSize.x * 0.2f);
-            float dateWidth = Mathf.Max(150f, windowSize.x * 0.25f);
+            StarterPackageInfoExtensions.GetColumnWidths(windowSize.x, out float categoryWidth, out float nameWidth,
+                out float versionWidth, out float dateWidth, out float downloadWidth);
 
             GUILayout.Label("Kategori", GUILayout.Width(categoryWidth));
             GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
             GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
             GUILayout.Label("Son güncellenme", GUILayout.Width(dateWidth));
             GUILayout.FlexibleSpace();
-            GUILayout.Label("İndirme", GUILayout.Width(100));
+            GUILayout.Label("İndirme", GUILayout.Width(downloadWidth));
             GUILayout.EndHorizontal();
 
             if (_isLoading)
@@ -75,7 +73,7 @@ namespace Vida.Framework.Editor
                         : "-";
                     GUILayout.Label(updatedText, GUILayout.Width(dateWidth));
                     GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("İndir", GUILayout.Width(100)))
+                    if (GUILayout.Button("İndir", GUILayout.Width(downloadWidth)))
                     {
                         _ = DownloadPackageAsync(package);
                     }
