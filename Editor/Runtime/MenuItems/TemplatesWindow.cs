@@ -64,10 +64,12 @@ namespace Vida.Framework.Editor
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal(EditorStyles.helpBox);
 
-            float nameWidth = Mathf.Max(150f, windowSize.x * 0.35f);
+            float categoryWidth = Mathf.Max(120f, windowSize.x * 0.2f);
+            float nameWidth = Mathf.Max(150f, windowSize.x * 0.3f);
             float versionWidth = Mathf.Max(100f, windowSize.x * 0.2f);
             float dateWidth = Mathf.Max(150f, windowSize.x * 0.25f);
 
+            GUILayout.Label("Kategori", GUILayout.Width(categoryWidth));
             GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
             GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
             GUILayout.Label("Son güncellenme", GUILayout.Width(dateWidth));
@@ -92,7 +94,7 @@ namespace Vida.Framework.Editor
                 string searchText = MainToolbar.search?.Trim();
                 List<StarterPackageInfo> filteredPackages = string.IsNullOrEmpty(searchText)
                     ? packages
-                    : packages.Where(p => MatchesSearch(p, searchText)).ToList();
+                    : packages.Where(p => p.MatchesSearch(searchText)).ToList();
 
                 if (filteredPackages.Count == 0)
                 {
@@ -105,9 +107,11 @@ namespace Vida.Framework.Editor
                 scroll = GUILayout.BeginScrollView(scroll);
                 foreach (StarterPackageInfo package in filteredPackages)
                 {
+                    PackageDisplayInfo displayInfo = package.GetDisplayInfo();
                     GUILayout.BeginHorizontal(EditorStyles.helpBox);
-                    GUILayout.Label(package.Name, GUILayout.Width(nameWidth));
-                    GUILayout.Label(string.IsNullOrEmpty(package.Version) ? "-" : package.Version, GUILayout.Width(versionWidth));
+                    GUILayout.Label(displayInfo.Category, GUILayout.Width(categoryWidth));
+                    GUILayout.Label(displayInfo.Name, GUILayout.Width(nameWidth));
+                    GUILayout.Label(string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, GUILayout.Width(versionWidth));
                     string updatedText = package.LastUpdated.HasValue
                         ? package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm")
                         : "-";
@@ -218,23 +222,6 @@ namespace Vida.Framework.Editor
         public static void ResetCachedData()
         {
             _resetRequested = true;
-        }
-
-        private static bool MatchesSearch(StarterPackageInfo package, string searchText)
-        {
-            if (package == null)
-            {
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(searchText))
-            {
-                return true;
-            }
-
-            return (!string.IsNullOrEmpty(package.Name) && package.Name.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0)
-                   || (!string.IsNullOrEmpty(package.Version) && package.Version.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0)
-                   || (package.LastUpdated.HasValue && package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm").IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
         }
     }
 }

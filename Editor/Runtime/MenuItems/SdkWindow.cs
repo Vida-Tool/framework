@@ -35,10 +35,12 @@ namespace Vida.Framework.Editor
 
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal(EditorStyles.helpBox);
-            float nameWidth = Mathf.Max(150f, windowSize.x * 0.35f);
+            float categoryWidth = Mathf.Max(120f, windowSize.x * 0.2f);
+            float nameWidth = Mathf.Max(150f, windowSize.x * 0.3f);
             float versionWidth = Mathf.Max(100f, windowSize.x * 0.2f);
             float dateWidth = Mathf.Max(150f, windowSize.x * 0.25f);
 
+            GUILayout.Label("Kategori", GUILayout.Width(categoryWidth));
             GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
             GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
             GUILayout.Label("Son güncellenme", GUILayout.Width(dateWidth));
@@ -63,9 +65,11 @@ namespace Vida.Framework.Editor
                 _scroll = GUILayout.BeginScrollView(_scroll);
                 foreach (StarterPackageInfo package in _packages)
                 {
+                    PackageDisplayInfo displayInfo = package.GetDisplayInfo();
                     GUILayout.BeginHorizontal(EditorStyles.helpBox);
-                    GUILayout.Label(package.Name, GUILayout.Width(nameWidth));
-                    GUILayout.Label(string.IsNullOrEmpty(package.Version) ? "-" : package.Version, GUILayout.Width(versionWidth));
+                    GUILayout.Label(displayInfo.Category, GUILayout.Width(categoryWidth));
+                    GUILayout.Label(displayInfo.Name, GUILayout.Width(nameWidth));
+                    GUILayout.Label(string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, GUILayout.Width(versionWidth));
                     string updatedText = package.LastUpdated.HasValue
                         ? package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm")
                         : "-";
