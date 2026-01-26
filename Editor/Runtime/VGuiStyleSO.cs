@@ -19,11 +19,6 @@ namespace Vida.Framework
         [field:SerializeField] public Color DarkBorderColor { get; set; } = new Color();
         
         
-        
-        [field:SerializeField] public Color Button { get; set; } = new Color(0.82f, 0.82f, 0.82f, 1f);
-        [field:SerializeField] public Color ButtonSelected { get; set; } = new Color(0.5f, 0.5f, 0.5f, 1f);
-
-        
         private static VGuiStyleSO _style;
         public static VGuiStyleSO Style
         {
