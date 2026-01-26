@@ -110,6 +110,8 @@ namespace Vida.Framework.Editor
         {
             var windowSize = position.size;
             windowSize.x -= 10;
+            float logoPadding = _backgroundTexture != null ? _backgroundTexture.height * 0.4f : 0f;
+            Vector2 contentSize = new Vector2(windowSize.x, Mathf.Max(0f, windowSize.y - logoPadding));
             
             _mainToolbar.Draw(windowSize);
             GUILayout.Space(10);
@@ -128,13 +130,13 @@ namespace Vida.Framework.Editor
                         _home.Draw();
                         break;
                     case "Starter":
-                        _starterWindow.Draw(windowSize);
+                        _starterWindow.Draw(contentSize);
                         break;
                     case "SDK":
-                        _sdkWindow.Draw(windowSize);
+                        _sdkWindow.Draw(contentSize);
                         break;
                     case "Templates":
-                        _templates.Draw(windowSize);
+                        _templates.Draw(contentSize);
                         break;
                     case "Settings":
                         _settings.Draw();

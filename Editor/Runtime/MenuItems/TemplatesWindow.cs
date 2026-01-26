@@ -45,7 +45,9 @@ namespace Vida.Framework.Editor
                 _resetRequested = false;
             }
 
+            EnsurePackagesLoadedForFilter(_activeFilter);
             DrawTabs(windowSize);
+            DrawPackageCategoryFilters(windowSize);
             GUILayout.Space(10f);
             DrawTable(windowSize);
         }
@@ -67,8 +69,6 @@ namespace Vida.Framework.Editor
 
         private void DrawTable(Vector2 windowSize)
         {
-            EnsurePackagesLoadedForFilter(_activeFilter);
-
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal(EditorStyles.helpBox);
 
@@ -98,15 +98,6 @@ namespace Vida.Framework.Editor
             else if (TryGetPackagesForFilter(_activeFilter, out List<StarterPackageInfo> packages) && packages.Count > 0)
             {
                 string searchText = MainToolbar.search?.Trim();
-                List<string> packageCategories = packages
-                    .Select(p => p.GetDisplayInfo().Category)
-                    .Where(category => !string.IsNullOrEmpty(category))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(category => category, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                DrawCategoryFilters(windowSize, packageCategories);
-
                 IEnumerable<StarterPackageInfo> filteredPackages = string.IsNullOrEmpty(searchText)
                     ? packages
                     : packages.Where(p => p.MatchesSearch(searchText));
@@ -294,6 +285,24 @@ namespace Vida.Framework.Editor
             }
         }
 
+        private void DrawPackageCategoryFilters(Vector2 windowSize)
+        {
+            if (!TryGetPackagesForFilter(_activeFilter, out List<StarterPackageInfo> packages) || packages.Count == 0)
+            {
+                return;
+            }
+
+            List<string> packageCategories = packages
+                .Select(p => p.GetDisplayInfo().Category)
+                .Where(category => !string.IsNullOrEmpty(category))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(category => IsUncategorized(category) ? 1 : 0)
+                .ThenBy(category => category, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            DrawCategoryFilters(windowSize, packageCategories);
+        }
+
         private void DrawCategoryFilters(Vector2 windowSize, List<string> categories)
         {
             if (categories == null)
@@ -324,6 +333,11 @@ namespace Vida.Framework.Editor
             }
 
             GUILayout.Space(6f);
+        }
+
+        private static bool IsUncategorized(string category)
+        {
+            return string.Equals(category, "uncategorized", StringComparison.OrdinalIgnoreCase);
         }
 
         private async void DownloadTemplate(StarterPackageInfo package)

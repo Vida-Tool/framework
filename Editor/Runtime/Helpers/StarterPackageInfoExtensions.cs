@@ -8,7 +8,7 @@ namespace Vida.Framework.Editor
     {
         public PackageDisplayInfo(string category, string name, string version)
         {
-            Category = string.IsNullOrEmpty(category) ? "none" : category;
+            Category = string.IsNullOrEmpty(category) ? "uncategorized" : category;
             Name = name ?? string.Empty;
             Version = version ?? string.Empty;
         }
@@ -39,24 +39,24 @@ namespace Vida.Framework.Editor
         {
             if (string.IsNullOrEmpty(fileName))
             {
-                return new PackageDisplayInfo("none", string.Empty, string.Empty);
+                return new PackageDisplayInfo("uncategorized", string.Empty, string.Empty);
             }
 
             string nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
             if (string.IsNullOrEmpty(nameWithoutExtension))
             {
-                return new PackageDisplayInfo("none", string.Empty, string.Empty);
+                return new PackageDisplayInfo("uncategorized", string.Empty, string.Empty);
             }
 
             string[] parts = nameWithoutExtension.Split(new[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length <= 0)
             {
-                return new PackageDisplayInfo("none", nameWithoutExtension, string.Empty);
+                return new PackageDisplayInfo("uncategorized", nameWithoutExtension, string.Empty);
             }
 
             if (parts.Length == 1)
             {
-                return new PackageDisplayInfo("none", parts[0], string.Empty);
+                return new PackageDisplayInfo("uncategorized", parts[0], string.Empty);
             }
 
             if (parts.Length == 2)
@@ -65,7 +65,7 @@ namespace Vida.Framework.Editor
                 string second = parts[1];
                 if (second.StartsWith("v", StringComparison.OrdinalIgnoreCase))
                 {
-                    return new PackageDisplayInfo("none", first, second);
+                    return new PackageDisplayInfo("uncategorized", first, second);
                 }
 
                 return new PackageDisplayInfo(first, second, string.Empty);
