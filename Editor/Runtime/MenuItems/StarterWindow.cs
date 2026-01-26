@@ -8,6 +8,7 @@ namespace Vida.Framework.Editor
 {
     public class StarterWindow
     {
+        private VGuiStyleSO Style => VGuiStyleSO.Style;
         private bool _initialized;
         private bool _isLoading;
         private string _errorMessage;
@@ -61,10 +62,11 @@ namespace Vida.Framework.Editor
             else if (_packages is { Count: > 0 })
             {
                 _scroll = GUILayout.BeginScrollView(_scroll);
+                GUIStyle rowStyle = VCustomGUI.GetBoxStyle(Style.StarterListItemBackground);
                 foreach (StarterPackageInfo package in _packages)
                 {
                     PackageDisplayInfo displayInfo = package.GetDisplayInfo();
-                    GUILayout.BeginHorizontal(EditorStyles.helpBox);
+                    GUILayout.BeginHorizontal(rowStyle);
                     GUILayout.Label(displayInfo.Category, GUILayout.Width(categoryWidth));
                     GUILayout.Label(displayInfo.Name, GUILayout.Width(nameWidth));
                     GUILayout.Label(string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, GUILayout.Width(versionWidth));

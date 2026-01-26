@@ -9,6 +9,7 @@ namespace Vida.Framework.Editor
 {
     public class TemplatesWindow
     {
+        private VGuiStyleSO Style => VGuiStyleSO.Style;
         private enum TemplateCategory
         {
             VidaAssets = 0,
@@ -123,7 +124,7 @@ namespace Vida.Framework.Editor
                 foreach (StarterPackageInfo package in filteredList)
                 {
                     PackageDisplayInfo displayInfo = package.GetDisplayInfo();
-                    GUILayout.BeginHorizontal(EditorStyles.helpBox);
+                    GUILayout.BeginHorizontal(GetRowStyle(package));
                     GUILayout.Label(displayInfo.Category, GUILayout.Width(categoryWidth));
                     GUILayout.Label(displayInfo.Name, GUILayout.Width(nameWidth));
                     GUILayout.Label(string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, GUILayout.Width(versionWidth));
@@ -338,6 +339,17 @@ namespace Vida.Framework.Editor
         private static bool IsUncategorized(string category)
         {
             return string.Equals(category, "uncategorized", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private GUIStyle GetRowStyle(StarterPackageInfo package)
+        {
+            if (_packages.TryGetValue(TemplateCategory.ThirdParty, out List<StarterPackageInfo> thirdPartyPackages)
+                && thirdPartyPackages.Contains(package))
+            {
+                return VCustomGUI.GetBoxStyle(Style.TemplatesThirdPartyListItemBackground);
+            }
+
+            return VCustomGUI.GetBoxStyle(Style.TemplatesVidaListItemBackground);
         }
 
         private async void DownloadTemplate(StarterPackageInfo package)
