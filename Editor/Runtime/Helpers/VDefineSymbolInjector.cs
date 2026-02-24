@@ -11,30 +11,20 @@ namespace Vida.Framework.Editor
         public static void Inject()
         {
             // Inject here
-            // Add : "ODIN_INSPECTOR", "ODIN_INSPECTOR_3", "ODIN_INSPECTOR_3_1"
+            // Add : "UNITASK_DOTWEEN_SUPPORT", "DOTWEEN_TEXTMESHPRO"
             
             var symbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(EditorUserBuildSettings.selectedBuildTargetGroup);
 
             bool changed = false;
-            
-            if (!symbols.Contains("ODIN_INSPECTOR"))
-            {
-                symbols += ";ODIN_INSPECTOR";
-                changed = true;
-            }
-            if (!symbols.Contains("ODIN_INSPECTOR_3"))
-            {
-                symbols += ";ODIN_INSPECTOR_3";
-                changed = true;
-            }
-            if (!symbols.Contains("ODIN_INSPECTOR_3_1"))
-            {
-                symbols += ";ODIN_INSPECTOR_3_1";
-                changed = true;
-            }
+
             if (!symbols.Contains("UNITASK_DOTWEEN_SUPPORT"))
             {
                 symbols += ";UNITASK_DOTWEEN_SUPPORT";
+                changed = true;
+            }
+            if (!symbols.Contains("DOTWEEN_TEXTMESHPRO"))
+            {
+                symbols += ";DOTWEEN_TEXTMESHPRO";
                 changed = true;
             }
              
