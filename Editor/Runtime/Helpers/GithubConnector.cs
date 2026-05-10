@@ -276,7 +276,7 @@ namespace Vida.Framework.Editor
             for (int i = 0; i < treePackages.Count; i++)
             {
                 StarterPackageInfo package = treePackages[i];
-                if (IsPackageInDirectory(package.Path, directory))
+                if (IsPackageInDirectory(package.RelativePath, directory))
                 {
                     packages.Add(package);
                 }
@@ -394,7 +394,7 @@ namespace Vida.Framework.Editor
                 return null;
             }
 
-            string name = Path.GetFileName(path);
+            string name = System.IO.Path.GetFileName(path);
             string version = StarterPackageInfo.ParseVersion(name);
             string apiLocation = CreateContentsApiUrl(path, branch);
             string downloadUrl = CreateRawDownloadUrl(path, branch);
@@ -467,7 +467,7 @@ namespace Vida.Framework.Editor
                     ["version"] = package.Version,
                     ["apiUrl"] = package.ApiUrl,
                     ["downloadUrl"] = package.DownloadUrl,
-                    ["path"] = package.Path
+                    ["path"] = package.RelativePath
                 };
                 cachedItems.Add(item);
             }
@@ -612,27 +612,27 @@ namespace Vida.Framework.Editor
     /// </summary>
     public class StarterPackageInfo
     {
-        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl, string path = null)
+        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl, string relativePath = null)
         {
             Name = name;
             Version = version;
             ApiUrl = apiUrl;
             DownloadUrl = downloadUrl;
-            Path = path;
+            RelativePath = relativePath;
         }
 
         public string Name { get; }
         public string Version { get; }
         public string ApiUrl { get; }
         public string DownloadUrl { get; }
-        public string Path { get; }
+        public string RelativePath { get; }
 
         public static string ParseVersion(string fileName)
         {
             if (string.IsNullOrEmpty(fileName))
                 return string.Empty;
 
-            string nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            string nameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(fileName);
             if (string.IsNullOrEmpty(nameWithoutExtension))
                 return string.Empty;
 
