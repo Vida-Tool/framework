@@ -31,19 +31,15 @@ namespace Vida.Framework.Editor
 
             GUILayout.FlexibleSpace();
 
-            if (GUILayout.Button("Reset"))
+            if (GUILayout.Button("Cache Reset"))
             {
-                TemplatesWindow.ResetCachedData();
-                GithubConnector.ResetConnection();
+                GithubConnector.ClearUnityPackageCache(true);
+                ResetPackageWindowData();
                 ReloadNeeded = true;
             }
             if(GUILayout.Button("Reload"))
             {
-                TemplatesWindow.ResetCachedData();
-                StarterWindow.ResetCachedData();
-                SdkWindow.ResetCachedData();
-                GithubConnector.ClearUnityPackageCache();
-                DataReader.LoadData();
+                ReloadSelectedWindow();
                 ReloadNeeded = true;
             }
             if (GUILayout.Button("Login"))
@@ -83,6 +79,37 @@ namespace Vida.Framework.Editor
         private void SetSelected(int index)
         {
             EditorPrefs.SetInt("MainToolbarSelectedIndex", index);
+        }
+
+        private void ReloadSelectedWindow()
+        {
+            switch (GetSelected())
+            {
+                case "Starter":
+                    StarterWindow.RequestReload();
+                    break;
+                case "SDK":
+                    SdkWindow.RequestReload();
+                    break;
+                case "Templates":
+                    TemplatesWindow.RequestReload();
+                    break;
+                case "Codes":
+                    DataReader.LoadData();
+                    break;
+            }
+        }
+
+        private void ResetPackageWindowData()
+        {
+            StarterWindow.ResetCachedData();
+            SdkWindow.ResetCachedData();
+            TemplatesWindow.ResetCachedData();
+
+            if (GetSelected() == "Codes")
+            {
+                DataReader.LoadData();
+            }
         }
     }
 }

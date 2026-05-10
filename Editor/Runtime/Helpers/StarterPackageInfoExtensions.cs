@@ -20,14 +20,13 @@ namespace Vida.Framework.Editor
 
     public static class StarterPackageInfoExtensions
     {
-        public static void GetColumnWidths(float windowWidth, out float categoryWidth, out float nameWidth, out float versionWidth, out float dateWidth, out float downloadWidth)
+        public static void GetColumnWidths(float windowWidth, out float categoryWidth, out float nameWidth, out float versionWidth, out float downloadWidth)
         {
             float available = Mathf.Max(300f, windowWidth - 40f);
-            categoryWidth = available * 0.18f;
-            nameWidth = available * 0.32f;
-            versionWidth = available * 0.15f;
-            dateWidth = available * 0.25f;
-            downloadWidth = available * 0.10f;
+            categoryWidth = available * 0.24f;
+            nameWidth = available * 0.42f;
+            versionWidth = available * 0.18f;
+            downloadWidth = available * 0.16f;
         }
 
         public static PackageDisplayInfo GetDisplayInfo(this StarterPackageInfo package)
@@ -95,10 +94,7 @@ namespace Vida.Framework.Editor
                    || (!string.IsNullOrEmpty(info.Version)
                        && info.Version.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0)
                    || (!string.IsNullOrEmpty(info.Category)
-                       && info.Category.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0)
-                   || (package.LastUpdated.HasValue
-                       && package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm")
-                           .IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
+                       && info.Category.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
         }
     }
 }

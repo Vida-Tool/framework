@@ -8,40 +8,47 @@ namespace Vida.Framework.Editor
 {
     public class SdkWindow
     {
+        private const string PackageDirectory = "Sdk";
+
         private bool _initialized;
         private bool _isLoading;
+        private bool _isRefreshing;
         private string _errorMessage;
         private Vector2 _scroll;
         private List<StarterPackageInfo> _packages;
         private static bool _resetRequested;
+        private static bool _reloadRequested;
 
         public void Draw(Vector2 windowSize)
         {
             if (_resetRequested)
             {
-                _initialized = false;
-                _isLoading = false;
-                _errorMessage = null;
-                _scroll = Vector2.zero;
-                _packages = null;
+                ClearWindowData();
                 _resetRequested = false;
+            }
+
+            if (_reloadRequested)
+            {
+                ClearWindowData();
+                _reloadRequested = false;
+                _initialized = true;
+                _ = LoadPackagesAsync(true);
             }
 
             if (!_initialized && !_isLoading)
             {
                 _initialized = true;
-                _ = LoadPackagesAsync();
+                _ = LoadPackagesAsync(false);
             }
 
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal(EditorStyles.helpBox);
             StarterPackageInfoExtensions.GetColumnWidths(windowSize.x, out float categoryWidth, out float nameWidth,
-                out float versionWidth, out float dateWidth, out float downloadWidth);
+                out float versionWidth, out float downloadWidth);
 
             GUILayout.Label("Kategori", GUILayout.Width(categoryWidth));
             GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
             GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
-            GUILayout.Label("Son güncellenme", GUILayout.Width(dateWidth));
             GUILayout.FlexibleSpace();
             GUILayout.Label("İndirme", GUILayout.Width(downloadWidth));
             GUILayout.EndHorizontal();
@@ -55,7 +62,7 @@ namespace Vida.Framework.Editor
                 EditorGUILayout.HelpBox(_errorMessage, MessageType.Error);
                 if (GUILayout.Button("Tekrar Dene"))
                 {
-                    _ = LoadPackagesAsync();
+                    _ = LoadPackagesAsync(true);
                 }
             }
             else if (_packages is { Count: > 0 })
@@ -68,10 +75,6 @@ namespace Vida.Framework.Editor
                     GUILayout.Label(displayInfo.Category, GUILayout.Width(categoryWidth));
                     GUILayout.Label(displayInfo.Name, GUILayout.Width(nameWidth));
                     GUILayout.Label(string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, GUILayout.Width(versionWidth));
-                    string updatedText = package.LastUpdated.HasValue
-                        ? package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm")
-                        : "-";
-                    GUILayout.Label(updatedText, GUILayout.Width(dateWidth));
                     GUILayout.FlexibleSpace();
                     if (GUILayout.Button("İndir", GUILayout.Width(downloadWidth)))
                     {
@@ -86,24 +89,28 @@ namespace Vida.Framework.Editor
                 GUILayout.Label("Gösterilecek SDK paketi bulunamadı.");
                 if (GUILayout.Button("Yenile"))
                 {
-                    _ = LoadPackagesAsync();
+                    _ = LoadPackagesAsync(true);
                 }
             }
 
             GUILayout.EndVertical();
         }
 
-        private async Task LoadPackagesAsync()
+        private async Task LoadPackagesAsync(bool forceRefresh)
         {
             if (_isLoading)
             {
                 return;
             }
+
+            bool shouldRefreshAfterLoad = !forceRefresh && GithubConnector.HasPersistentUnityPackageCache(PackageDirectory);
+            bool refreshAfterLoad = false;
             _isLoading = true;
             _errorMessage = null;
             try
             {
-                _packages = await GithubConnector.GetSdkPackagesAsync();
+                _packages = await GithubConnector.GetSdkPackagesAsync(forceRefresh);
+                refreshAfterLoad = shouldRefreshAfterLoad;
             }
             catch (Exception ex)
             {
@@ -113,6 +120,35 @@ namespace Vida.Framework.Editor
             finally
             {
                 _isLoading = false;
+                EditorApplication.QueuePlayerLoopUpdate();
+            }
+
+            if (refreshAfterLoad)
+            {
+                _ = RefreshPackagesAsync();
+            }
+        }
+
+        private async Task RefreshPackagesAsync()
+        {
+            if (_isRefreshing)
+            {
+                return;
+            }
+
+            _isRefreshing = true;
+            try
+            {
+                _packages = await GithubConnector.GetSdkPackagesAsync(true);
+                _errorMessage = null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"SDK paket cache yenilemesi başarısız: {ex.Message}");
+            }
+            finally
+            {
+                _isRefreshing = false;
                 EditorApplication.QueuePlayerLoopUpdate();
             }
         }
@@ -149,6 +185,21 @@ namespace Vida.Framework.Editor
         public static void ResetCachedData()
         {
             _resetRequested = true;
+        }
+
+        public static void RequestReload()
+        {
+            _reloadRequested = true;
+        }
+
+        private void ClearWindowData()
+        {
+            _initialized = false;
+            _isLoading = false;
+            _isRefreshing = false;
+            _errorMessage = null;
+            _scroll = Vector2.zero;
+            _packages = null;
         }
     }
 }

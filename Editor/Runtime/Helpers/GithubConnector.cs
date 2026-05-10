@@ -15,8 +15,9 @@ namespace Vida.Framework.Editor
     public static class GithubConnector
     {
         #region Private Members
+        private const string PackageCacheKeyPrefix = "VidaFramework.UnityPackageCache.";
+        private const string PackageCacheIndexKey = "VidaFramework.UnityPackageCache.Keys";
         private static readonly string githubRepoURL = "https://api.github.com/repos/Vida-Tool/packages/contents/";
-        private static readonly string githubCommitUrlTemplate = "https://api.github.com/repos/Vida-Tool/packages/commits?path={0}&per_page=1";
         private static string authToken => $"Bearer {ApiKey}";
         private static string acceptToken => "application/vnd.github.v3+json";
         #endregion
@@ -25,8 +26,6 @@ namespace Vida.Framework.Editor
         public static bool IsFileDownloading { get; set; } = false;
         private static bool _tasking;
         private static readonly ConcurrentDictionary<string, Task<List<StarterPackageInfo>>> _unityPackageCache = new();
-        private static readonly ConcurrentDictionary<string, Task<DateTime?>> _lastUpdatedCache = new();
-        private static readonly System.Threading.SemaphoreSlim _commitRequestLimiter = new System.Threading.SemaphoreSlim(4);
 
         /// <summary>
         /// Bağlantı ayarlarını sıfırlar.
@@ -38,10 +37,13 @@ namespace Vida.Framework.Editor
             ClearUnityPackageCache();
         }
 
-        public static void ClearUnityPackageCache()
+        public static void ClearUnityPackageCache(bool clearPersistentCache = false)
         {
             _unityPackageCache.Clear();
-            _lastUpdatedCache.Clear();
+            if (clearPersistentCache)
+            {
+                ClearPersistentUnityPackageCache();
+            }
         }
 
         /// <summary>
@@ -172,12 +174,22 @@ namespace Vida.Framework.Editor
             return GetUnityPackagesAsync("Starters");
         }
 
+        public static Task<List<StarterPackageInfo>> GetStarterPackagesAsync(bool forceRefresh)
+        {
+            return GetUnityPackagesAsync("Starters", forceRefresh);
+        }
+
         /// <summary>
         /// GitHub üzerindeki Sdk klasöründeki paket listesini döner.
         /// </summary>
         public static Task<List<StarterPackageInfo>> GetSdkPackagesAsync()
         {
             return GetUnityPackagesAsync("Sdk");
+        }
+
+        public static Task<List<StarterPackageInfo>> GetSdkPackagesAsync(bool forceRefresh)
+        {
+            return GetUnityPackagesAsync("Sdk", forceRefresh);
         }
 
         /// <summary>
@@ -193,16 +205,38 @@ namespace Vida.Framework.Editor
             return GetUnityPackagesInternalAsync(relativeDirectory, forceRefresh);
         }
 
+        public static bool HasPersistentUnityPackageCache(string relativeDirectory)
+        {
+            if (string.IsNullOrEmpty(relativeDirectory))
+            {
+                return false;
+            }
+
+            string key = NormalizePackageCacheKey(relativeDirectory);
+            return EditorPrefs.HasKey(GetPersistentPackageCacheKey(key));
+        }
+
         private static Task<List<StarterPackageInfo>> GetUnityPackagesInternalAsync(string relativeDirectory, bool forceRefresh)
         {
-            string key = relativeDirectory.Trim('/');
+            string key = NormalizePackageCacheKey(relativeDirectory);
 
             if (forceRefresh)
             {
-                _lastUpdatedCache.Clear();
                 Task<List<StarterPackageInfo>> refreshTask = CreateCachedFetchTask(key);
                 _unityPackageCache[key] = refreshTask;
                 return refreshTask;
+            }
+
+            if (_unityPackageCache.TryGetValue(key, out Task<List<StarterPackageInfo>> cachedTask))
+            {
+                return cachedTask;
+            }
+
+            if (TryLoadPersistentUnityPackageCache(key, out List<StarterPackageInfo> cachedPackages))
+            {
+                Task<List<StarterPackageInfo>> persistentTask = Task.FromResult(cachedPackages);
+                _unityPackageCache[key] = persistentTask;
+                return persistentTask;
             }
 
             return _unityPackageCache.GetOrAdd(key, _ => CreateCachedFetchTask(key));
@@ -216,7 +250,9 @@ namespace Vida.Framework.Editor
             {
                 try
                 {
-                    return await FetchUnityPackagesFromApiCoreAsync(key);
+                    List<StarterPackageInfo> packages = await FetchUnityPackagesFromApiCoreAsync(key);
+                    SavePersistentUnityPackageCache(key, packages);
+                    return packages;
                 }
                 catch
                 {
@@ -252,7 +288,6 @@ namespace Vida.Framework.Editor
                 }
 
                 JArray items = JArray.Parse(request.downloadHandler.text);
-                List<Task<StarterPackageInfo>> pendingPackages = new List<Task<StarterPackageInfo>>();
 
                 foreach (JToken item in items)
                 {
@@ -270,35 +305,16 @@ namespace Vida.Framework.Editor
                     if (!string.Equals(type, "file", StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    Task<StarterPackageInfo> infoTask = CreatePackageInfoAsync(item);
-                    pendingPackages.Add(infoTask);
-                }
-
-                if (pendingPackages.Count > 0)
-                {
-                    StarterPackageInfo[] results = await Task.WhenAll(pendingPackages);
-                    foreach (StarterPackageInfo info in results)
+                    StarterPackageInfo info = CreatePackageInfo(item);
+                    if (info != null)
                     {
-                        if (info != null)
-                        {
-                            packages.Add(info);
-                        }
+                        packages.Add(info);
                     }
                 }
             }
         }
 
-        private static Task<DateTime?> GetFileLastUpdatedCachedAsync(string path)
-        {
-            if (string.IsNullOrEmpty(path))
-            {
-                return Task.FromResult<DateTime?>(null);
-            }
-
-            return _lastUpdatedCache.GetOrAdd(path, FetchFileLastUpdatedInternalAsync);
-        }
-
-        private static async Task<StarterPackageInfo> CreatePackageInfoAsync(JToken item)
+        private static StarterPackageInfo CreatePackageInfo(JToken item)
         {
             string name = item["name"]?.ToString();
             if (string.IsNullOrEmpty(name) || !name.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
@@ -308,77 +324,125 @@ namespace Vida.Framework.Editor
 
             string apiLocation = item["url"]?.ToString();
             string downloadUrl = item["download_url"]?.ToString();
-            string path = item["path"]?.ToString();
             string version = StarterPackageInfo.ParseVersion(name);
 
-            DateTime? lastUpdated = null;
+            return new StarterPackageInfo(name, version, apiLocation, downloadUrl);
+        }
+
+        private static string NormalizePackageCacheKey(string relativeDirectory)
+        {
+            return relativeDirectory.Trim('/');
+        }
+
+        private static bool TryLoadPersistentUnityPackageCache(string key, out List<StarterPackageInfo> packages)
+        {
+            packages = null;
+            string cacheKey = GetPersistentPackageCacheKey(key);
+            if (!EditorPrefs.HasKey(cacheKey))
+            {
+                return false;
+            }
+
+            string json = EditorPrefs.GetString(cacheKey, string.Empty);
+            if (string.IsNullOrEmpty(json))
+            {
+                return false;
+            }
+
             try
             {
-                lastUpdated = await GetFileLastUpdatedCachedAsync(path);
+                JArray cachedItems = JArray.Parse(json);
+                packages = new List<StarterPackageInfo>();
+                foreach (JToken item in cachedItems)
+                {
+                    string name = item["name"]?.ToString();
+                    if (string.IsNullOrEmpty(name))
+                    {
+                        continue;
+                    }
+
+                    string version = item["version"]?.ToString();
+                    string apiUrl = item["apiUrl"]?.ToString();
+                    string downloadUrl = item["downloadUrl"]?.ToString();
+                    packages.Add(new StarterPackageInfo(name, version, apiUrl, downloadUrl));
+                }
+
+                return true;
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"Failed to resolve last updated information for {path}. Error: {ex.Message}");
+                Debug.LogWarning($"Failed to read cached package list for {key}. Error: {ex.Message}");
+                EditorPrefs.DeleteKey(cacheKey);
+                return false;
             }
-
-            return new StarterPackageInfo(name, version, apiLocation, downloadUrl, lastUpdated);
         }
 
-        private static async Task<DateTime?> FetchFileLastUpdatedInternalAsync(string path)
+        private static void SavePersistentUnityPackageCache(string key, List<StarterPackageInfo> packages)
         {
-            if (string.IsNullOrEmpty(path))
+            if (packages == null)
             {
-                return null;
+                return;
             }
 
-            string escapedPath = UnityWebRequest.EscapeURL(path);
-            string url = string.Format(githubCommitUrlTemplate, escapedPath);
-
-            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            JArray cachedItems = new JArray();
+            foreach (StarterPackageInfo package in packages)
             {
-                request.SetRequestHeader("Authorization", authToken);
-                request.SetRequestHeader("Accept", acceptToken);
-
-                await _commitRequestLimiter.WaitAsync();
-                try
+                JObject item = new JObject
                 {
-                    request.SendWebRequest();
-
-                    while (!request.isDone)
-                        await Task.Delay(10);
-
-                    if (request.result != UnityWebRequest.Result.Success)
-                    {
-                        Debug.LogWarning($"Failed to fetch last updated information for {path}. Error: {request.error}");
-                        return null;
-                    }
-
-                    try
-                    {
-                        JArray commits = JArray.Parse(request.downloadHandler.text);
-                        if (commits.Count == 0)
-                            return null;
-
-                        string dateString = commits[0]?["commit"]?["committer"]?["date"]?.ToString()
-                                            ?? commits[0]?["commit"]?["author"]?["date"]?.ToString();
-
-                        if (DateTime.TryParse(dateString, out DateTime parsed))
-                        {
-                            return parsed.ToLocalTime();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogWarning($"Failed to parse last updated information for {path}. Error: {ex.Message}");
-                    }
-
-                    return null;
-                }
-                finally
-                {
-                    _commitRequestLimiter.Release();
-                }
+                    ["name"] = package.Name,
+                    ["version"] = package.Version,
+                    ["apiUrl"] = package.ApiUrl,
+                    ["downloadUrl"] = package.DownloadUrl
+                };
+                cachedItems.Add(item);
             }
+
+            EditorPrefs.SetString(GetPersistentPackageCacheKey(key), cachedItems.ToString());
+            RegisterPersistentPackageCacheKey(key);
+        }
+
+        private static void ClearPersistentUnityPackageCache()
+        {
+            List<string> keys = GetPersistentPackageCacheKeys();
+            for (int i = 0; i < keys.Count; i++)
+            {
+                EditorPrefs.DeleteKey(GetPersistentPackageCacheKey(keys[i]));
+            }
+
+            EditorPrefs.DeleteKey(PackageCacheIndexKey);
+        }
+
+        private static void RegisterPersistentPackageCacheKey(string key)
+        {
+            List<string> keys = GetPersistentPackageCacheKeys();
+            if (!keys.Contains(key))
+            {
+                keys.Add(key);
+                EditorPrefs.SetString(PackageCacheIndexKey, string.Join("\n", keys));
+            }
+        }
+
+        private static List<string> GetPersistentPackageCacheKeys()
+        {
+            List<string> keys = new List<string>();
+            string value = EditorPrefs.GetString(PackageCacheIndexKey, string.Empty);
+            if (string.IsNullOrEmpty(value))
+            {
+                return keys;
+            }
+
+            string[] splitKeys = value.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < splitKeys.Length; i++)
+            {
+                keys.Add(splitKeys[i]);
+            }
+
+            return keys;
+        }
+
+        private static string GetPersistentPackageCacheKey(string key)
+        {
+            return PackageCacheKeyPrefix + key.Replace("/", ".");
         }
 
         /// <summary>
@@ -441,20 +505,18 @@ namespace Vida.Framework.Editor
     /// </summary>
     public class StarterPackageInfo
     {
-        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl, DateTime? lastUpdated)
+        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl)
         {
             Name = name;
             Version = version;
             ApiUrl = apiUrl;
             DownloadUrl = downloadUrl;
-            LastUpdated = lastUpdated;
         }
 
         public string Name { get; }
         public string Version { get; }
         public string ApiUrl { get; }
         public string DownloadUrl { get; }
-        public DateTime? LastUpdated { get; }
 
         public static string ParseVersion(string fileName)
         {

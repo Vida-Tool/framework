@@ -31,11 +31,13 @@ namespace Vida.Framework.Editor
         private readonly Dictionary<TemplateCategory, List<StarterPackageInfo>> _packages = new();
         private readonly Dictionary<TemplateCategory, string> _errors = new();
         private readonly HashSet<TemplateCategory> _isLoading = new();
+        private readonly HashSet<TemplateCategory> _isRefreshing = new();
         private readonly Dictionary<TemplateFilter, Vector2> _scrollPositions = new();
 
         private TemplateFilter _activeFilter = TemplateFilter.All;
         private string _activePackageCategory = "All";
         private bool _isDownloading;
+        private static bool _reloadRequested;
 
         public void Draw(Vector2 windowSize)
         {
@@ -43,6 +45,12 @@ namespace Vida.Framework.Editor
             {
                 ClearCachedData();
                 _resetRequested = false;
+            }
+
+            if (_reloadRequested)
+            {
+                _reloadRequested = false;
+                _ = ReloadPackagesForFilterAsync(_activeFilter);
             }
 
             EnsurePackagesLoadedForFilter(_activeFilter);
@@ -73,12 +81,11 @@ namespace Vida.Framework.Editor
             GUILayout.BeginHorizontal(EditorStyles.helpBox);
 
             StarterPackageInfoExtensions.GetColumnWidths(windowSize.x, out float categoryWidth, out float nameWidth,
-                out float versionWidth, out float dateWidth, out float downloadWidth);
+                out float versionWidth, out float downloadWidth);
 
             GUILayout.Label("Kategori", GUILayout.Width(categoryWidth));
             GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
             GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
-            GUILayout.Label("Son güncellenme", GUILayout.Width(dateWidth));
             GUILayout.FlexibleSpace();
             GUILayout.Label("İndirme", GUILayout.Width(downloadWidth));
             GUILayout.EndHorizontal();
@@ -127,10 +134,6 @@ namespace Vida.Framework.Editor
                     GUILayout.Label(displayInfo.Category, GUILayout.Width(categoryWidth));
                     GUILayout.Label(displayInfo.Name, GUILayout.Width(nameWidth));
                     GUILayout.Label(string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, GUILayout.Width(versionWidth));
-                    string updatedText = package.LastUpdated.HasValue
-                        ? package.LastUpdated.Value.ToString("dd.MM.yyyy HH:mm")
-                        : "-";
-                    GUILayout.Label(updatedText, GUILayout.Width(dateWidth));
                     GUILayout.FlexibleSpace();
                     if (GUILayout.Button("İndir", GUILayout.Width(downloadWidth)))
                     {
@@ -190,16 +193,16 @@ namespace Vida.Framework.Editor
 
             _isLoading.Add(category);
             _errors.Remove(category);
+            bool shouldRefreshAfterLoad = !force && GithubConnector.HasPersistentUnityPackageCache(GetDirectory(category));
+            bool refreshAfterLoad = false;
 
             try
             {
-                string directory = category == TemplateCategory.VidaAssets ? VidaAssetsFolder : ThirdPartyFolder;
+                string directory = GetDirectory(category);
                 List<StarterPackageInfo> packages = await GithubConnector.GetUnityPackagesAsync(directory, force);
-                packages = packages
-                    .OrderByDescending(p => p.LastUpdated ?? DateTime.MinValue)
-                    .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                SortPackages(packages);
                 _packages[category] = packages;
+                refreshAfterLoad = shouldRefreshAfterLoad;
             }
             catch (Exception ex)
             {
@@ -209,6 +212,37 @@ namespace Vida.Framework.Editor
             finally
             {
                 _isLoading.Remove(category);
+                EditorApplication.QueuePlayerLoopUpdate();
+            }
+
+            if (refreshAfterLoad)
+            {
+                _ = RefreshPackagesAsync(category);
+            }
+        }
+
+        private async Task RefreshPackagesAsync(TemplateCategory category)
+        {
+            if (_isRefreshing.Contains(category) || _isLoading.Contains(category))
+            {
+                return;
+            }
+
+            _isRefreshing.Add(category);
+            try
+            {
+                List<StarterPackageInfo> packages = await GithubConnector.GetUnityPackagesAsync(GetDirectory(category), true);
+                SortPackages(packages);
+                _packages[category] = packages;
+                _errors.Remove(category);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"Template paket cache yenilemesi başarısız: {ex.Message}");
+            }
+            finally
+            {
+                _isRefreshing.Remove(category);
                 EditorApplication.QueuePlayerLoopUpdate();
             }
         }
@@ -374,6 +408,7 @@ namespace Vida.Framework.Editor
             _packages.Clear();
             _errors.Clear();
             _isLoading.Clear();
+            _isRefreshing.Clear();
             _scrollPositions.Clear();
             _isDownloading = false;
         }
@@ -381,6 +416,32 @@ namespace Vida.Framework.Editor
         public static void ResetCachedData()
         {
             _resetRequested = true;
+        }
+
+        public static void RequestReload()
+        {
+            _reloadRequested = true;
+        }
+
+        private static void SortPackages(List<StarterPackageInfo> packages)
+        {
+            packages.Sort((left, right) =>
+            {
+                PackageDisplayInfo leftInfo = left.GetDisplayInfo();
+                PackageDisplayInfo rightInfo = right.GetDisplayInfo();
+                int categoryResult = string.Compare(leftInfo.Category, rightInfo.Category, StringComparison.OrdinalIgnoreCase);
+                if (categoryResult != 0)
+                {
+                    return categoryResult;
+                }
+
+                return string.Compare(leftInfo.Name, rightInfo.Name, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        private static string GetDirectory(TemplateCategory category)
+        {
+            return category == TemplateCategory.VidaAssets ? VidaAssetsFolder : ThirdPartyFolder;
         }
     }
 }
