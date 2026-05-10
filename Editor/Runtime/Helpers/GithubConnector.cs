@@ -17,7 +17,10 @@ namespace Vida.Framework.Editor
         #region Private Members
         private const string PackageCacheKeyPrefix = "VidaFramework.UnityPackageCache.";
         private const string PackageCacheIndexKey = "VidaFramework.UnityPackageCache.Keys";
+        private const string PackageDefaultBranchCacheKey = "VidaFramework.PackageDefaultBranch";
+        private static readonly string githubRepoApiURL = "https://api.github.com/repos/Vida-Tool/packages";
         private static readonly string githubRepoURL = "https://api.github.com/repos/Vida-Tool/packages/contents/";
+        private static readonly string githubTreeUrlTemplate = "https://api.github.com/repos/Vida-Tool/packages/git/trees/{0}?recursive=1";
         private static string authToken => $"Bearer {ApiKey}";
         private static string acceptToken => "application/vnd.github.v3+json";
         #endregion
@@ -26,6 +29,7 @@ namespace Vida.Framework.Editor
         public static bool IsFileDownloading { get; set; } = false;
         private static bool _tasking;
         private static readonly ConcurrentDictionary<string, Task<List<StarterPackageInfo>>> _unityPackageCache = new();
+        private static Task<List<StarterPackageInfo>> _packageTreeFetchTask;
 
         /// <summary>
         /// Bağlantı ayarlarını sıfırlar.
@@ -40,6 +44,7 @@ namespace Vida.Framework.Editor
         public static void ClearUnityPackageCache(bool clearPersistentCache = false)
         {
             _unityPackageCache.Clear();
+            _packageTreeFetchTask = null;
             if (clearPersistentCache)
             {
                 ClearPersistentUnityPackageCache();
@@ -222,7 +227,7 @@ namespace Vida.Framework.Editor
 
             if (forceRefresh)
             {
-                Task<List<StarterPackageInfo>> refreshTask = CreateCachedFetchTask(key);
+                Task<List<StarterPackageInfo>> refreshTask = CreateCachedFetchTask(key, true);
                 _unityPackageCache[key] = refreshTask;
                 return refreshTask;
             }
@@ -239,10 +244,10 @@ namespace Vida.Framework.Editor
                 return persistentTask;
             }
 
-            return _unityPackageCache.GetOrAdd(key, _ => CreateCachedFetchTask(key));
+            return _unityPackageCache.GetOrAdd(key, _ => CreateCachedFetchTask(key, false));
         }
 
-        private static Task<List<StarterPackageInfo>> CreateCachedFetchTask(string key)
+        private static Task<List<StarterPackageInfo>> CreateCachedFetchTask(string key, bool forceRefresh)
         {
             return FetchAndTrackAsync();
 
@@ -250,7 +255,7 @@ namespace Vida.Framework.Editor
             {
                 try
                 {
-                    List<StarterPackageInfo> packages = await FetchUnityPackagesFromApiCoreAsync(key);
+                    List<StarterPackageInfo> packages = await FetchUnityPackagesFromTreeAsync(key, forceRefresh);
                     SavePersistentUnityPackageCache(key, packages);
                     return packages;
                 }
@@ -262,17 +267,39 @@ namespace Vida.Framework.Editor
             }
         }
 
-        private static async Task<List<StarterPackageInfo>> FetchUnityPackagesFromApiCoreAsync(string relativeDirectory)
+        private static async Task<List<StarterPackageInfo>> FetchUnityPackagesFromTreeAsync(string relativeDirectory, bool forceRefresh)
         {
             List<StarterPackageInfo> packages = new List<StarterPackageInfo>();
-            string url = githubRepoURL + relativeDirectory.Trim('/');
-            await CollectUnityPackagesAsync(url, packages);
+            List<StarterPackageInfo> treePackages = await GetPackageTreePackagesAsync(forceRefresh);
+            string directory = NormalizePackageCacheKey(relativeDirectory);
+
+            for (int i = 0; i < treePackages.Count; i++)
+            {
+                StarterPackageInfo package = treePackages[i];
+                if (IsPackageInDirectory(package.Path, directory))
+                {
+                    packages.Add(package);
+                }
+            }
+
             return packages;
         }
 
-        private static async Task CollectUnityPackagesAsync(string apiUrl, List<StarterPackageInfo> packages)
+        private static Task<List<StarterPackageInfo>> GetPackageTreePackagesAsync(bool forceRefresh)
         {
-            using (UnityWebRequest request = UnityWebRequest.Get(apiUrl))
+            if (_packageTreeFetchTask == null || _packageTreeFetchTask.IsFaulted || _packageTreeFetchTask.IsCanceled || (forceRefresh && _packageTreeFetchTask.IsCompleted))
+            {
+                _packageTreeFetchTask = FetchPackageTreePackagesAsync();
+            }
+
+            return _packageTreeFetchTask;
+        }
+
+        private static async Task<List<StarterPackageInfo>> FetchPackageTreePackagesAsync()
+        {
+            string branch = await GetDefaultBranchAsync();
+            string url = string.Format(githubTreeUrlTemplate, UnityWebRequest.EscapeURL(branch));
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
             {
                 request.SetRequestHeader("Authorization", authToken);
                 request.SetRequestHeader("Accept", acceptToken);
@@ -283,50 +310,96 @@ namespace Vida.Framework.Editor
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    Debug.LogError("Failed to fetch packages from " + apiUrl + ". Error: " + request.error);
-                    throw new Exception("Paket listesi alınamadı.");
+                    Debug.LogError("Failed to fetch package tree. Error: " + request.error);
+                    throw new Exception("Paket ağacı alınamadı.");
                 }
 
-                JArray items = JArray.Parse(request.downloadHandler.text);
-
-                foreach (JToken item in items)
+                JObject root = JObject.Parse(request.downloadHandler.text);
+                if (root["truncated"]?.Value<bool>() == true)
                 {
-                    string type = item["type"]?.ToString();
-                    if (string.Equals(type, "dir", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string directoryUrl = item["url"]?.ToString();
-                        if (!string.IsNullOrEmpty(directoryUrl))
-                        {
-                            await CollectUnityPackagesAsync(directoryUrl, packages);
-                        }
-                        continue;
-                    }
-
-                    if (!string.Equals(type, "file", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    StarterPackageInfo info = CreatePackageInfo(item);
-                    if (info != null)
-                    {
-                        packages.Add(info);
-                    }
+                    Debug.LogWarning("GitHub package tree response was truncated. Some packages may be missing.");
                 }
+
+                JArray tree = root["tree"] as JArray;
+                return CreatePackageInfosFromTree(tree, branch);
             }
         }
 
-        private static StarterPackageInfo CreatePackageInfo(JToken item)
+        private static async Task<string> GetDefaultBranchAsync()
         {
-            string name = item["name"]?.ToString();
-            if (string.IsNullOrEmpty(name) || !name.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
+            string cachedBranch = EditorPrefs.GetString(PackageDefaultBranchCacheKey, string.Empty);
+            if (!string.IsNullOrEmpty(cachedBranch))
+            {
+                return cachedBranch;
+            }
+
+            using (UnityWebRequest request = UnityWebRequest.Get(githubRepoApiURL))
+            {
+                request.SetRequestHeader("Authorization", authToken);
+                request.SetRequestHeader("Accept", acceptToken);
+                request.SendWebRequest();
+
+                while (!request.isDone)
+                    await Task.Delay(10);
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogWarning("Failed to resolve default branch. Falling back to main. Error: " + request.error);
+                    return "main";
+                }
+
+                JObject root = JObject.Parse(request.downloadHandler.text);
+                string branch = root["default_branch"]?.ToString();
+                if (string.IsNullOrEmpty(branch))
+                {
+                    return "main";
+                }
+
+                EditorPrefs.SetString(PackageDefaultBranchCacheKey, branch);
+                return branch;
+            }
+        }
+
+        private static List<StarterPackageInfo> CreatePackageInfosFromTree(JArray tree, string branch)
+        {
+            List<StarterPackageInfo> packages = new List<StarterPackageInfo>();
+            if (tree == null)
+            {
+                return packages;
+            }
+
+            foreach (JToken item in tree)
+            {
+                StarterPackageInfo package = CreatePackageInfoFromTreeItem(item, branch);
+                if (package != null)
+                {
+                    packages.Add(package);
+                }
+            }
+
+            return packages;
+        }
+
+        private static StarterPackageInfo CreatePackageInfoFromTreeItem(JToken item, string branch)
+        {
+            string type = item["type"]?.ToString();
+            if (!string.Equals(type, "blob", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
-            string apiLocation = item["url"]?.ToString();
-            string downloadUrl = item["download_url"]?.ToString();
-            string version = StarterPackageInfo.ParseVersion(name);
+            string path = item["path"]?.ToString();
+            if (string.IsNullOrEmpty(path) || !path.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
 
-            return new StarterPackageInfo(name, version, apiLocation, downloadUrl);
+            string name = Path.GetFileName(path);
+            string version = StarterPackageInfo.ParseVersion(name);
+            string apiLocation = CreateContentsApiUrl(path, branch);
+            string downloadUrl = CreateRawDownloadUrl(path, branch);
+
+            return new StarterPackageInfo(name, version, apiLocation, downloadUrl, path);
         }
 
         private static string NormalizePackageCacheKey(string relativeDirectory)
@@ -364,7 +437,8 @@ namespace Vida.Framework.Editor
                     string version = item["version"]?.ToString();
                     string apiUrl = item["apiUrl"]?.ToString();
                     string downloadUrl = item["downloadUrl"]?.ToString();
-                    packages.Add(new StarterPackageInfo(name, version, apiUrl, downloadUrl));
+                    string path = item["path"]?.ToString();
+                    packages.Add(new StarterPackageInfo(name, version, apiUrl, downloadUrl, path));
                 }
 
                 return true;
@@ -392,7 +466,8 @@ namespace Vida.Framework.Editor
                     ["name"] = package.Name,
                     ["version"] = package.Version,
                     ["apiUrl"] = package.ApiUrl,
-                    ["downloadUrl"] = package.DownloadUrl
+                    ["downloadUrl"] = package.DownloadUrl,
+                    ["path"] = package.Path
                 };
                 cachedItems.Add(item);
             }
@@ -410,6 +485,7 @@ namespace Vida.Framework.Editor
             }
 
             EditorPrefs.DeleteKey(PackageCacheIndexKey);
+            EditorPrefs.DeleteKey(PackageDefaultBranchCacheKey);
         }
 
         private static void RegisterPersistentPackageCacheKey(string key)
@@ -443,6 +519,37 @@ namespace Vida.Framework.Editor
         private static string GetPersistentPackageCacheKey(string key)
         {
             return PackageCacheKeyPrefix + key.Replace("/", ".");
+        }
+
+        private static bool IsPackageInDirectory(string path, string directory)
+        {
+            if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(directory))
+            {
+                return false;
+            }
+
+            return path.StartsWith(directory + "/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string CreateContentsApiUrl(string path, string branch)
+        {
+            return githubRepoURL + EscapeGithubPath(path) + "?ref=" + UnityWebRequest.EscapeURL(branch);
+        }
+
+        private static string CreateRawDownloadUrl(string path, string branch)
+        {
+            return "https://raw.githubusercontent.com/Vida-Tool/packages/" + UnityWebRequest.EscapeURL(branch) + "/" + EscapeGithubPath(path);
+        }
+
+        private static string EscapeGithubPath(string path)
+        {
+            string[] parts = path.Split('/');
+            for (int i = 0; i < parts.Length; i++)
+            {
+                parts[i] = UnityWebRequest.EscapeURL(parts[i]);
+            }
+
+            return string.Join("/", parts);
         }
 
         /// <summary>
@@ -505,18 +612,20 @@ namespace Vida.Framework.Editor
     /// </summary>
     public class StarterPackageInfo
     {
-        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl)
+        public StarterPackageInfo(string name, string version, string apiUrl, string downloadUrl, string path = null)
         {
             Name = name;
             Version = version;
             ApiUrl = apiUrl;
             DownloadUrl = downloadUrl;
+            Path = path;
         }
 
         public string Name { get; }
         public string Version { get; }
         public string ApiUrl { get; }
         public string DownloadUrl { get; }
+        public string Path { get; }
 
         public static string ParseVersion(string fileName)
         {

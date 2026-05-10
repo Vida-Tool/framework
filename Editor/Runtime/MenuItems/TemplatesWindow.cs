@@ -313,8 +313,9 @@ namespace Vida.Framework.Editor
                     await LoadPackagesAsync(TemplateCategory.ThirdParty, true);
                     break;
                 default:
-                    await LoadPackagesAsync(TemplateCategory.VidaAssets, true);
-                    await LoadPackagesAsync(TemplateCategory.ThirdParty, true);
+                    Task vidaAssetsTask = LoadPackagesAsync(TemplateCategory.VidaAssets, true);
+                    Task thirdPartyTask = LoadPackagesAsync(TemplateCategory.ThirdParty, true);
+                    await Task.WhenAll(vidaAssetsTask, thirdPartyTask);
                     break;
             }
         }
