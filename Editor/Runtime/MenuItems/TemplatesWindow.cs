@@ -75,7 +75,7 @@ namespace Vida.Framework.Editor
 
                 using (new GUILayout.VerticalScope(GUILayout.Width(Mathf.Min(280f, Mathf.Max(180f, windowSize.x * 0.34f)))))
                 {
-                    GUILayout.Space(18f);
+                    GUILayout.Space(2f);
                     MainToolbar.search = VidaPremiumGUI.DrawSearchField(MainToolbar.search, Mathf.Min(280f, Mathf.Max(180f, windowSize.x * 0.34f)));
                 }
             }
