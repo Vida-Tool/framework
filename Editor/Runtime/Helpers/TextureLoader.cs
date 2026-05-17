@@ -8,8 +8,9 @@ namespace Vida.Framework.Editor
         
         public static Texture2D GetTexture(string path)
         {
-            string normalPath = "Assets/framework/Editor/Resources/Icons/" + path;
-            string packagePath = "Packages/com.vida.framework/Editor/Resources/Icons/" + path;
+            string normalizedPath = path.TrimStart('/');
+            string normalPath = "Assets/framework/Editor/Resources/Icons/" + normalizedPath;
+            string packagePath = "Packages/com.vida.framework/Editor/Resources/Icons/" + normalizedPath;
 
             var item = AssetDatabase.LoadAssetAtPath<Texture2D>(normalPath);
 

@@ -12,26 +12,17 @@ namespace Vida.Framework.Editor
         /// </summary>
         public void Draw()
         {
-            GUILayout.Space(20);
-
-            GitLogin();
-
             if (!VidaFramework.Connection)
-                return;
-
-            GUILayout.Space(35);
-
-            GUILayout.BeginHorizontal();
             {
-                GUILayout.Space(20);
-                GUILayout.BeginVertical();
-                {
-                    GUILayout.Label("Starter paketleri artık Starter sekmesinden yönetilebilir.", EditorStyles.wordWrappedLabel);
-                }
-                GUILayout.EndVertical();
+                GitLogin();
+                return;
             }
-            GUILayout.EndHorizontal();
-            GUILayout.FlexibleSpace();
+
+            VidaPremiumGUI.DrawSectionHeader("Home", "Framework packages, templates and code helpers are ready.");
+            VidaPremiumGUI.DrawCenteredState(
+                "Connection Ready",
+                "Starter, SDK and Templates tabs can now be managed from the left menu.",
+                VidaPremiumGUI.GetPremiumTexture("status-connected.png"));
         }
 
         /// <summary>
@@ -39,28 +30,42 @@ namespace Vida.Framework.Editor
         /// </summary>
         private void GitLogin()
         {
-            GUILayout.Space(10);
-
-            GUILayout.BeginVertical();
-            GUILayout.Label("Please login to your GitHub account to continue.", VGUIStyle.CenteredLabel);
-            GUILayout.Space(10);
-            ApiKey = GUILayout.TextField(ApiKey, 128, GUILayout.Height(40));
-            GUILayout.Space(10);
-
-            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            using (new GUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Try Connect", GUILayout.Height(40)))
+                GUILayout.FlexibleSpace();
+                using (new GUILayout.VerticalScope(GUILayout.Width(440f)))
                 {
-                    TryConnectAsync();
+                    Rect cardRect = GUILayoutUtility.GetRect(440f, 190f, GUILayout.Width(440f), GUILayout.Height(190f));
+                    VidaPremiumGUI.DrawFrame(cardRect, "frame-panel-selected.png");
+
+                    GUILayout.BeginArea(VidaPremiumGUI.GetInnerRect(cardRect, 18f));
+                    {
+                        VidaPremiumGUI.DrawSectionHeader("GitHub Connection", "Connect once to load Vida framework packages.");
+                        ApiKey = VidaPremiumGUI.DrawSearchField(ApiKey, 404f);
+                        GUILayout.Space(14f);
+
+                        using (new GUILayout.HorizontalScope())
+                        {
+                            if (VidaPremiumGUI.DrawHeaderAction("Try", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), 128f))
+                            {
+                                TryConnectAsync();
+                            }
+
+                            GUILayout.Space(8f);
+
+                            if (VidaPremiumGUI.DrawHeaderAction("Login", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 128f, true))
+                            {
+                                LoginAsync();
+                            }
+                        }
+                    }
+                    GUILayout.EndArea();
                 }
 
-                if (GUILayout.Button("Login", GUILayout.Height(40)))
-                {
-                    LoginAsync();
-                }
+                GUILayout.FlexibleSpace();
             }
-            GUILayout.EndHorizontal();
-            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
         }
 
         /// <summary>

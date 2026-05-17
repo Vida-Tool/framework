@@ -1,7 +1,6 @@
 ﻿#if UNITY_EDITOR
 namespace Vida.Framework.Editor
 {
-    using System;
     using UnityEngine;
     using UnityEditor;
     
@@ -22,7 +21,6 @@ namespace Vida.Framework.Editor
             set => SessionState.SetBool(AutoConnectSessionKey, value);
         }
 
-        private static int _loadIconIndex = 0;
         private static VGitLogin _activeLoginWindow
         {
             get
@@ -41,8 +39,8 @@ namespace Vida.Framework.Editor
         {
             var window = GetWindow<VidaFramework>();
             Rect rect = window.position;
-            rect.width = 900;
-            rect.height = 500;
+            rect.width = 980;
+            rect.height = 600;
             
             float x = Screen.currentResolution.width / 2f - rect.width / 2;
             float y = Screen.currentResolution.height / 2f - rect.height / 2;
@@ -50,8 +48,8 @@ namespace Vida.Framework.Editor
             rect.y = y;
             
             window.position = rect;
-            window.minSize = new Vector2(700, 300);
-            window.titleContent = new GUIContent("Menu","Framework menu");
+            window.minSize = new Vector2(820, 440);
+            window.titleContent = new GUIContent("Vida Framework","Framework menu");
             
             VDefineSymbolInjector.Inject();
 
@@ -81,76 +79,83 @@ namespace Vida.Framework.Editor
         private CodesWindow _codesWindow = new CodesWindow();
 
         private Texture2D _backgroundTexture;
-        
-        private void DrawBackgroundTexture()
+
+        private void OnEnable()
         {
-            var windowSize = position.size;
-            windowSize.x -= 25;
-            windowSize.y -= 25;
-
-            windowSize.x += _backgroundTexture.width * 0.07f;
-            windowSize.y += _backgroundTexture.height * 0.15f;
-            
-            float width = _backgroundTexture.width * 0.3f;
-            float height = _backgroundTexture.height * 0.4f;
-
-            Rect textureRect = new Rect(windowSize.x - width,windowSize.y - height,width,height);
-            GUI.DrawTexture(textureRect,_backgroundTexture);
+            LoadTextures();
         }
 
         private void CreateGUI()
         {
-            
-            _backgroundTexture = TextureLoader.GetTexture("vida-games-icon.png");
-            
+            LoadTextures();
             TemplatesWindow.ResetCachedData();
         }
 
         private void OnGUI()
         {
-            var windowSize = position.size;
-            windowSize.x -= 10;
-            float logoPadding = _backgroundTexture != null ? _backgroundTexture.height * 0.4f : 0f;
-            Vector2 contentSize = new Vector2(windowSize.x, Mathf.Max(0f, windowSize.y - logoPadding));
-            
-            _mainToolbar.Draw(windowSize);
-            GUILayout.Space(10);
+            Rect windowRect = new Rect(0f, 0f, position.width, position.height);
+            VidaPremiumGUI.DrawWindowBackground(windowRect);
 
+            float outerPadding = VidaPremiumGUI.OuterPadding;
+            Rect sidebarRect = new Rect(outerPadding, outerPadding, VidaPremiumGUI.SidebarWidth, position.height - outerPadding * 2f);
+            Rect headerRect = new Rect(sidebarRect.xMax + outerPadding, outerPadding, position.width - sidebarRect.width - outerPadding * 3f, VidaPremiumGUI.HeaderHeight);
+            Rect contentRect = new Rect(headerRect.x, headerRect.yMax + outerPadding, headerRect.width, position.height - headerRect.yMax - outerPadding * 2f);
+
+            _mainToolbar.DrawSidebar(sidebarRect, _backgroundTexture);
+            _mainToolbar.DrawHeader(headerRect);
+            VidaPremiumGUI.DrawFrame(contentRect, "frame-panel.png");
+
+            Rect innerContentRect = VidaPremiumGUI.GetInnerRect(contentRect);
+            GUILayout.BeginArea(innerContentRect);
+            {
+                DrawSelectedContent(innerContentRect.size);
+            }
+            GUILayout.EndArea();
+        }
+
+        private void LoadTextures()
+        {
+            _backgroundTexture = TextureLoader.GetTexture("vida-games-icon.png");
+        }
+
+        private void DrawSelectedContent(Vector2 contentSize)
+        {
             if (!Connection)
             {
                 _home.Draw();
                 return;
             }
 
-            if (_activeLoginWindow == null)
+            if (_activeLoginWindow != null)
             {
-                switch (_mainToolbar.GetSelected())
-                {
-                    case "Home":
-                        _home.Draw();
-                        break;
-                    case "Starter":
-                        _starterWindow.Draw(contentSize);
-                        break;
-                    case "SDK":
-                        _sdkWindow.Draw(contentSize);
-                        break;
-                    case "Templates":
-                        _templates.Draw(contentSize);
-                        break;
-                    case "Settings":
-                        _settings.Draw();
-                        break;
-                    case "Codes":
-                        _codesWindow.Draw(windowSize);
-                        return;
-                }
+                VidaPremiumGUI.DrawCenteredState(
+                    "Login Window Active",
+                    "GitHub login window is open. Complete or close it to continue.",
+                    VidaPremiumGUI.GetPremiumTexture("icon-login.png"));
+                return;
             }
-            
 
-            
-            DrawBackgroundTexture();
-
+            switch (_mainToolbar.GetSelected())
+            {
+                case "Home":
+                    _home.Draw();
+                    break;
+                case "Starter":
+                    _starterWindow.Draw(contentSize);
+                    break;
+                case "SDK":
+                    _sdkWindow.Draw(contentSize);
+                    break;
+                case "Templates":
+                    _templates.Draw(contentSize);
+                    break;
+                case "Settings":
+                    _settings.Draw();
+                    break;
+                case "Codes":
+                    _codesWindow.Draw(contentSize);
+                    break;
+            }
         }
     }
 }

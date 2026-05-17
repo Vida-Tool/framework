@@ -10,10 +10,11 @@ namespace Vida.Framework.Editor
 
         public void Draw()
         {
-            
-            GUILayout.BeginVertical();
-            GUILayout.EndVertical();
-            
+            VidaPremiumGUI.DrawSectionHeader("Settings", "Framework style and local editor preferences.");
+            VidaPremiumGUI.DrawCenteredState(
+                "Settings Panel",
+                "Style controls can be moved here after the premium window shell is approved.",
+                VidaPremiumGUI.GetPremiumTexture("icon-settings.png"));
         }
     }
 }

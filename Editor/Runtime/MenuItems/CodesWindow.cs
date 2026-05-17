@@ -49,12 +49,20 @@ namespace Vida.Framework
         public void Draw(Vector2 windowSize)
         {
             TryInit(windowSize);
-            if (_categories == null || _categories.Count == 0) return;
+            VidaPremiumGUI.DrawSectionHeader("Codes", "Reusable code snippets grouped by category.");
+            if (_categories == null || _categories.Count == 0)
+            {
+                VidaPremiumGUI.DrawCenteredState(
+                    "Code listesi hazırlanıyor...",
+                    "Code data yüklendiğinde kategoriler burada görünecek.",
+                    VidaPremiumGUI.GetPremiumTexture("icon-codes.png"));
+                return;
+            }
 
             GUILayout.BeginHorizontal();
             {
-                GUILayout.Space(10);
                 DrawTemplateLister(windowSize, _categories.ToArray());
+                GUILayout.Space(14f);
                 DrawCategory(windowSize);
                 GUILayout.FlexibleSpace();
             }
@@ -63,27 +71,28 @@ namespace Vida.Framework
 
         private void DrawTemplateLister(Vector2 windowSize, string[] items)
         {
-            Rect currentRect = GUILayoutUtility.GetRect(0, 0);
-            float boxWidth = 140;
-            GUI.Box(new Rect(currentRect.x, currentRect.y, boxWidth, windowSize.y - 40), "",
-                VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
+            float boxWidth = 156f;
+            float boxHeight = Mathf.Max(160f, windowSize.y - 104f);
+            Rect sidebarRect = GUILayoutUtility.GetRect(boxWidth, boxHeight, GUILayout.Width(boxWidth), GUILayout.Height(boxHeight));
+            VidaPremiumGUI.DrawFrame(sidebarRect, "frame-sidebar.png");
 
-            GUILayout.Space(5);
-            
-            GUILayout.BeginVertical(GUILayout.Width(boxWidth - 15), GUILayout.Height(windowSize.y - 60));
+            Rect innerRect = VidaPremiumGUI.GetInnerRect(sidebarRect, 10f);
+            GUI.BeginGroup(innerRect);
+            GUILayout.BeginArea(new Rect(0f, 0f, innerRect.width, innerRect.height));
             {
                 for (int i = 0; i < items.Length; i++)
                 {
-                    GUILayout.Space(5);
-
-                    if (GUILayout.Button(items[i], GUILayout.Height(30)))
+                    Rect itemRect = GUILayoutUtility.GetRect(boxWidth - 20f, 36f, GUILayout.ExpandWidth(true), GUILayout.Height(36f));
+                    if (VidaPremiumGUI.DrawSidebarItem(itemRect, items[i], VidaPremiumGUI.GetPremiumTexture("icon-codes.png"), _selectedCategory == i))
                     {
                         _selectedCategory = i;
                     }
+
+                    GUILayout.Space(5f);
                 }
 
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Force Reload", GUILayout.Height(30)))
+                if (VidaPremiumGUI.DrawHeaderAction("Reload", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), boxWidth - 20f))
                 {
                     _selectedCategory = -1;
                     CodeEditorDrawer.Reset();
@@ -92,19 +101,25 @@ namespace Vida.Framework
                     _codeDatas = null;
                 }
             }
-            GUILayout.EndVertical();
+            GUILayout.EndArea();
+            GUI.EndGroup();
         }
 
         private void DrawCategory(Vector2 window)
         {
-            if (_selectedCategory == -1) return;
+            if (_selectedCategory == -1)
+            {
+                VidaPremiumGUI.DrawCenteredState(
+                    "Kategori seç",
+                    "Soldaki listeden bir code kategorisi seçerek snippet içeriklerini görüntüleyebilirsin.",
+                    VidaPremiumGUI.GetPremiumTexture("icon-codes.png"));
+                return;
+            }
+
             CodeData[] datas = _codeDatas.Where(x => x.category == _categories[_selectedCategory]).ToArray();
-            GUILayout.Space(20);
 
             GUILayout.BeginVertical(GUILayout.Width(1000));
             {
-                GUILayout.Space(20);
-
                 sliderValue[_selectedCategory] =
                     GUILayout.BeginScrollView(sliderValue[_selectedCategory], GUILayout.Width(window.x - 200),
                         GUILayout.Height(window.y - 60), GUILayout.ExpandWidth(true));

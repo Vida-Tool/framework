@@ -18,6 +18,7 @@ namespace Vida.Framework.Editor
         private const string PackageCacheKeyPrefix = "VidaFramework.UnityPackageCache.";
         private const string PackageCacheIndexKey = "VidaFramework.UnityPackageCache.Keys";
         private const string PackageDefaultBranchCacheKey = "VidaFramework.PackageDefaultBranch";
+        private const string ApiKeyPrefsKey = "GitApiKey";
         private static readonly string githubRepoApiURL = "https://api.github.com/repos/Vida-Tool/packages";
         private static readonly string githubRepoURL = "https://api.github.com/repos/Vida-Tool/packages/contents/";
         private static readonly string githubTreeUrlTemplate = "https://api.github.com/repos/Vida-Tool/packages/git/trees/{0}?recursive=1";
@@ -602,8 +603,13 @@ namespace Vida.Framework.Editor
         /// </summary>
         public static string ApiKey
         {
-            get => EditorPrefs.GetString("GitApiKey", "");
-            set => EditorPrefs.SetString("GitApiKey", value);
+            get => EditorPrefs.GetString(ApiKeyPrefsKey, "");
+            set => EditorPrefs.SetString(ApiKeyPrefsKey, value);
+        }
+
+        public static void ClearApiKey()
+        {
+            EditorPrefs.DeleteKey(ApiKeyPrefsKey);
         }
     }
 

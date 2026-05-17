@@ -42,25 +42,20 @@ namespace Vida.Framework.Editor
             }
 
             GUILayout.BeginVertical();
-            GUILayout.BeginHorizontal(EditorStyles.helpBox);
-            StarterPackageInfoExtensions.GetColumnWidths(windowSize.x, out float categoryWidth, out float nameWidth,
-                out float versionWidth, out float downloadWidth);
-
-            GUILayout.Label("Kategori", GUILayout.Width(categoryWidth));
-            GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
-            GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
-            GUILayout.FlexibleSpace();
-            GUILayout.Label("İndirme", GUILayout.Width(downloadWidth));
-            GUILayout.EndHorizontal();
+            VidaPremiumGUI.DrawSectionHeader("Starter Packages", "Ready-to-import project starter packages from the Vida repository.");
+            VidaPremiumGUI.DrawPackageTableHeader(windowSize.x);
+            GUILayout.Space(6f);
 
             if (_isLoading)
             {
-                GUILayout.Label("Starter paketleri yükleniyor...");
+                VidaPremiumGUI.DrawCenteredState(
+                    "Starter paketleri yükleniyor...",
+                    "Cache varsa önce hızlı liste gelir, ardından arka planda güncellenir.",
+                    VidaPremiumGUI.GetPremiumTexture("status-refreshing.png"));
             }
             else if (!string.IsNullOrEmpty(_errorMessage))
             {
-                EditorGUILayout.HelpBox(_errorMessage, MessageType.Error);
-                if (GUILayout.Button("Tekrar Dene"))
+                if (VidaPremiumGUI.DrawRetryState("Starter paketleri alınamadı.", _errorMessage))
                 {
                     _ = LoadPackagesAsync(true);
                 }
@@ -71,23 +66,17 @@ namespace Vida.Framework.Editor
                 foreach (StarterPackageInfo package in _packages)
                 {
                     PackageDisplayInfo displayInfo = package.GetDisplayInfo();
-                    GUILayout.BeginHorizontal(EditorStyles.helpBox);
-                    GUILayout.Label(displayInfo.Category, GUILayout.Width(categoryWidth));
-                    GUILayout.Label(displayInfo.Name, GUILayout.Width(nameWidth));
-                    GUILayout.Label(string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, GUILayout.Width(versionWidth));
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("İndir", GUILayout.Width(downloadWidth)))
+                    if (VidaPremiumGUI.DrawPackageRow(displayInfo, windowSize.x, _isLoading))
                     {
                         _ = DownloadPackageAsync(package);
                     }
-                    GUILayout.EndHorizontal();
+                    GUILayout.Space(6f);
                 }
                 GUILayout.EndScrollView();
             }
             else
             {
-                GUILayout.Label("Gösterilecek starter paketi bulunamadı.");
-                if (GUILayout.Button("Yenile"))
+                if (VidaPremiumGUI.DrawRetryState("Gösterilecek starter paketi bulunamadı.", "Repository listesini tekrar kontrol edebilirsin."))
                 {
                     _ = LoadPackagesAsync(true);
                 }

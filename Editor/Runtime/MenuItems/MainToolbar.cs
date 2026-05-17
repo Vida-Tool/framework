@@ -7,53 +7,98 @@ namespace Vida.Framework.Editor
     public class MainToolbar
     {
         public static string search = "";
-        private string[] _keys =  new string[]{ "Home", "Starter", "SDK", "Templates","Codes", "Settings" };
-        
-        public void Draw(Vector2 windowSize)
+        private readonly ToolbarItem[] _items =
         {
-            GUILayout.BeginHorizontal();
-            
-            Rect currentRect = GUILayoutUtility.GetRect(0,0);
-            GUI.Box(new Rect(currentRect.x,currentRect.y,windowSize.x+10,25),"",VGUIStyle.GetBoxStyle(VGUIStyle.BackgroundSoft));
-            
-            float width = Mathf.Max(windowSize.x * 0.6f, 400f);
-            int selected = GUILayout.Toolbar(GetSelectedIndex(), _keys,GUILayout.Width(width));
-            if (selected != GetSelectedIndex())
-            {
-                SetSelected(selected);
-            }
+            new ToolbarItem("Home", "icon-home.png", "Overview"),
+            new ToolbarItem("Starter", "icon-starter.png", "Starter packs"),
+            new ToolbarItem("SDK", "icon-sdk.png", "SDK packages"),
+            new ToolbarItem("Templates", "icon-templates.png", "Asset templates"),
+            new ToolbarItem("Codes", "icon-codes.png", "Code snippets"),
+            new ToolbarItem("Settings", "icon-settings.png", "Preferences")
+        };
 
-            if (GetSelected() == "Templates")
-            {
-                GUILayout.Space(10);
-                search = EditorGUILayout.TextField(search, GUILayout.Width(windowSize.x*0.2f));
-            }
+        public void DrawSidebar(Rect sidebarRect, Texture2D logoTexture)
+        {
+            VidaPremiumGUI.DrawFrame(sidebarRect, "frame-sidebar.png");
 
-            GUILayout.FlexibleSpace();
+            Rect innerRect = VidaPremiumGUI.GetInnerRect(sidebarRect, 12f);
+            GUILayout.BeginArea(innerRect);
+            {
+                VidaPremiumGUI.DrawBrandHeader();
+                GUILayout.Space(18f);
 
-            if (GUILayout.Button("Cache Reset"))
-            {
-                GithubConnector.ClearUnityPackageCache(true);
-                ResetPackageWindowData();
-                ReloadNeeded = true;
-            }
-            if(GUILayout.Button("Reload"))
-            {
-                ReloadSelectedWindow();
-                ReloadNeeded = true;
-            }
-            if (GUILayout.Button("Login"))
-            {
-                VidaFramework.Connection = false;
-                VidaFramework.AutoConnect = false;
-                VGitLogin.ShowWindow(null);
-            }
-                
-            
-            GUILayout.EndHorizontal();
+                for (int i = 0; i < _items.Length; i++)
+                {
+                    ToolbarItem item = _items[i];
+                    Rect itemRect = GUILayoutUtility.GetRect(innerRect.width, 42f, GUILayout.ExpandWidth(true), GUILayout.Height(42f));
+                    if (VidaPremiumGUI.DrawSidebarItem(itemRect, item.Label, VidaPremiumGUI.GetPremiumTexture(item.IconName), i == GetSelectedIndex()))
+                    {
+                        SetSelected(i);
+                    }
 
-            
-            GUI.color = Color.white;
+                    GUILayout.Space(6f);
+                }
+
+                GUILayout.FlexibleSpace();
+                using (new GUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    VidaPremiumGUI.DrawConnectionStatus(VidaFramework.Connection, false);
+                    GUILayout.FlexibleSpace();
+                }
+
+                GUILayout.Space(10f);
+
+                using (new GUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    VidaPremiumGUI.DrawSidebarLogo(logoTexture);
+                    GUILayout.FlexibleSpace();
+                }
+            }
+            GUILayout.EndArea();
+        }
+
+        public void DrawHeader(Rect headerRect)
+        {
+            VidaPremiumGUI.DrawFrame(headerRect, "frame-header.png");
+
+            Rect innerRect = VidaPremiumGUI.GetInnerRect(headerRect, 12f);
+            GUILayout.BeginArea(innerRect);
+            {
+                using (new GUILayout.HorizontalScope())
+                {
+                    using (new GUILayout.VerticalScope(GUILayout.Width(230f)))
+                    {
+                        VidaPremiumGUI.DrawHeaderInfo(GetSelected(), GetSelectedSubtitle());
+                    }
+
+                    GUILayout.FlexibleSpace();
+
+                    if (VidaPremiumGUI.DrawHeaderAction("Cache", VidaPremiumGUI.GetPremiumTexture("icon-cache-reset.png"), 92f))
+                    {
+                        GithubConnector.ClearUnityPackageCache(true);
+                        ResetPackageWindowData();
+                        ReloadNeeded = true;
+                    }
+
+                    GUILayout.Space(6f);
+
+                    if (VidaPremiumGUI.DrawHeaderAction("Reload", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), 96f))
+                    {
+                        ReloadSelectedWindow();
+                        ReloadNeeded = true;
+                    }
+
+                    GUILayout.Space(6f);
+
+                    if (DrawConnectionAction())
+                    {
+                        HandleConnectionAction();
+                    }
+                }
+            }
+            GUILayout.EndArea();
         }
     
         public static bool ReloadNeeded
@@ -65,11 +110,17 @@ namespace Vida.Framework.Editor
         
         public string GetSelected()
         {
-            return _keys[EditorPrefs.GetInt("MainToolbarSelectedIndex", 0)];
+            return _items[GetSelectedIndex()].Label;
         }
         public int GetSelectedIndex()
         {
-            return EditorPrefs.GetInt("MainToolbarSelectedIndex", 0);
+            int selectedIndex = EditorPrefs.GetInt("MainToolbarSelectedIndex", 0);
+            if (selectedIndex < 0 || selectedIndex >= _items.Length)
+            {
+                return 0;
+            }
+
+            return selectedIndex;
         }
     
         private bool IsSelected(int index)
@@ -109,6 +160,57 @@ namespace Vida.Framework.Editor
             if (GetSelected() == "Codes")
             {
                 DataReader.LoadData();
+            }
+        }
+
+        private bool DrawConnectionAction()
+        {
+            if (VidaFramework.Connection)
+            {
+                return VidaPremiumGUI.DrawHeaderAction("Logout", VidaPremiumGUI.GetPremiumTexture("icon-logout.png"), 96f, false, true);
+            }
+
+            return VidaPremiumGUI.DrawHeaderAction("Login", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 88f, true);
+        }
+
+        private void HandleConnectionAction()
+        {
+            if (VidaFramework.Connection)
+            {
+                Logout();
+                return;
+            }
+
+            VidaFramework.Connection = false;
+            VidaFramework.AutoConnect = false;
+            VGitLogin.ShowWindow(null);
+        }
+
+        private void Logout()
+        {
+            GithubConnector.ClearApiKey();
+            GithubConnector.ResetConnection();
+            VidaFramework.Connection = false;
+            VidaFramework.AutoConnect = false;
+            DataReader.CodeData.Clear();
+        }
+
+        private string GetSelectedSubtitle()
+        {
+            return _items[GetSelectedIndex()].Subtitle;
+        }
+
+        private readonly struct ToolbarItem
+        {
+            public readonly string Label;
+            public readonly string IconName;
+            public readonly string Subtitle;
+
+            public ToolbarItem(string label, string iconName, string subtitle)
+            {
+                Label = label;
+                IconName = iconName;
+                Subtitle = subtitle;
             }
         }
     }

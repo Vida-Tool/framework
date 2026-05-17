@@ -54,10 +54,33 @@ namespace Vida.Framework.Editor
             }
 
             EnsurePackagesLoadedForFilter(_activeFilter);
+            DrawTemplateHeader(windowSize);
             DrawTabs(windowSize);
             DrawPackageCategoryFilters(windowSize);
             GUILayout.Space(10f);
             DrawTable(windowSize);
+        }
+
+        private void DrawTemplateHeader(Vector2 windowSize)
+        {
+            using (new GUILayout.HorizontalScope())
+            {
+                using (new GUILayout.VerticalScope())
+                {
+                    VidaPremiumGUI.DrawHeaderInfo("Templates", "Vida assets and third-party templates ready for import.");
+                }
+
+                GUILayout.FlexibleSpace();
+                GUILayout.Space(12f);
+
+                using (new GUILayout.VerticalScope(GUILayout.Width(Mathf.Min(280f, Mathf.Max(180f, windowSize.x * 0.34f)))))
+                {
+                    GUILayout.Space(18f);
+                    MainToolbar.search = VidaPremiumGUI.DrawSearchField(MainToolbar.search, Mathf.Min(280f, Mathf.Max(180f, windowSize.x * 0.34f)));
+                }
+            }
+
+            GUILayout.Space(10f);
         }
 
         private void DrawTabs(Vector2 windowSize)
@@ -65,7 +88,7 @@ namespace Vida.Framework.Editor
             string[] tabs = { "All", "Vida", "Third-party" };
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
-            int selected = GUILayout.Toolbar((int)_activeFilter, tabs, GUILayout.Width(Mathf.Min(windowSize.x - 40f, 360f)));
+            int selected = VidaPremiumGUI.DrawSegmentedControl(tabs, (int)_activeFilter, Mathf.Min(windowSize.x - 40f, 360f));
             if (selected != (int)_activeFilter)
             {
                 _activeFilter = (TemplateFilter)selected;
@@ -78,26 +101,19 @@ namespace Vida.Framework.Editor
         private void DrawTable(Vector2 windowSize)
         {
             GUILayout.BeginVertical();
-            GUILayout.BeginHorizontal(EditorStyles.helpBox);
-
-            StarterPackageInfoExtensions.GetColumnWidths(windowSize.x, out float categoryWidth, out float nameWidth,
-                out float versionWidth, out float downloadWidth);
-
-            GUILayout.Label("Kategori", GUILayout.Width(categoryWidth));
-            GUILayout.Label("Paket adı", GUILayout.Width(nameWidth));
-            GUILayout.Label("Versiyon numarası", GUILayout.Width(versionWidth));
-            GUILayout.FlexibleSpace();
-            GUILayout.Label("İndirme", GUILayout.Width(downloadWidth));
-            GUILayout.EndHorizontal();
+            VidaPremiumGUI.DrawPackageTableHeader(windowSize.x);
+            GUILayout.Space(6f);
 
             if (IsLoadingForFilter(_activeFilter))
             {
-                GUILayout.Label("Paketler yükleniyor...");
+                VidaPremiumGUI.DrawCenteredState(
+                    "Paketler yükleniyor...",
+                    "Seçili filtreye göre package listesi hazırlanıyor.",
+                    VidaPremiumGUI.GetPremiumTexture("status-refreshing.png"));
             }
             else if (TryGetErrorForFilter(_activeFilter, out string error) && !string.IsNullOrEmpty(error))
             {
-                EditorGUILayout.HelpBox(error, MessageType.Error);
-                if (GUILayout.Button("Tekrar Dene", GUILayout.Width(120f)))
+                if (VidaPremiumGUI.DrawRetryState("Paket listesi alınamadı.", error))
                 {
                     _ = ReloadPackagesForFilterAsync(_activeFilter);
                 }
@@ -119,34 +135,35 @@ namespace Vida.Framework.Editor
 
                 if (filteredList.Count == 0)
                 {
-                    GUILayout.Label("Arama kriterine uygun paket bulunamadı.");
+                    VidaPremiumGUI.DrawCenteredState(
+                        "Arama kriterine uygun paket bulunamadı.",
+                        "Search veya kategori filtresini değiştirerek tekrar deneyebilirsin.",
+                        VidaPremiumGUI.GetPremiumTexture("icon-templates.png"));
                     GUILayout.EndVertical();
                     return;
                 }
 
                 TemplateFilter filterKey = _activeFilter;
                 Vector2 scroll = _scrollPositions.TryGetValue(filterKey, out Vector2 existing) ? existing : Vector2.zero;
-                scroll = GUILayout.BeginScrollView(scroll);
+                scroll = GUILayout.BeginScrollView(scroll, false, false);
                 foreach (StarterPackageInfo package in filteredList)
                 {
                     PackageDisplayInfo displayInfo = package.GetDisplayInfo();
-                    GUILayout.BeginHorizontal(EditorStyles.helpBox);
-                    GUILayout.Label(displayInfo.Category, GUILayout.Width(categoryWidth));
-                    GUILayout.Label(displayInfo.Name, GUILayout.Width(nameWidth));
-                    GUILayout.Label(string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, GUILayout.Width(versionWidth));
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("İndir", GUILayout.Width(downloadWidth)))
+                    if (VidaPremiumGUI.DrawPackageRow(displayInfo, windowSize.x, _isDownloading))
                     {
                         DownloadTemplate(package);
                     }
-                    GUILayout.EndHorizontal();
+                    GUILayout.Space(6f);
                 }
                 GUILayout.EndScrollView();
                 _scrollPositions[filterKey] = scroll;
             }
             else
             {
-                GUILayout.Label("Gösterilecek paket bulunamadı.");
+                VidaPremiumGUI.DrawCenteredState(
+                    "Gösterilecek paket bulunamadı.",
+                    "Seçili kaynakta import edilebilir template paketi bulunamadı.",
+                    VidaPremiumGUI.GetPremiumTexture("icon-templates.png"));
             }
 
             GUILayout.EndVertical();
@@ -358,7 +375,7 @@ namespace Vida.Framework.Editor
 
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
-            int nextIndex = GUILayout.Toolbar(selectedIndex, options.ToArray(), GUILayout.Width(Mathf.Min(windowSize.x - 40f, 480f)));
+            int nextIndex = VidaPremiumGUI.DrawSegmentedControl(options.ToArray(), selectedIndex, Mathf.Min(windowSize.x - 40f, 520f));
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
