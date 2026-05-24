@@ -121,7 +121,7 @@ namespace Vida.Framework.Editor
             button.style.flexDirection = FlexDirection.Row;
             button.style.alignItems = Align.Center;
             button.style.justifyContent = Justify.Center;
-            button.style.width = 132f;
+            button.style.width = 104f;
             button.style.height = 22f;
             button.style.marginLeft = 6f;
             button.style.marginRight = 6f;
