@@ -35,7 +35,7 @@ namespace Vida.Framework.Editor
         }
 
         [MenuItem("Vida/Menu")]
-        private static async void OpenWindow()
+        internal static async void OpenWindow()
         {
             var window = GetWindow<VidaFramework>();
             Rect rect = window.position;
