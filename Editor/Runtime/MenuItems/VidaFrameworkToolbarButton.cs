@@ -1,20 +1,45 @@
 ﻿#if UNITY_EDITOR
+#if !UNITY_6000_0_OR_NEWER
 using System;
 using System.Reflection;
+#endif
 using UnityEditor;
+#if UNITY_6000_0_OR_NEWER
+using UnityEditor.Toolbars;
+#endif
 using UnityEngine;
+#if !UNITY_6000_0_OR_NEWER
 using UnityEngine.UIElements;
+#endif
 
 namespace Vida.Framework.Editor
 {
+#if !UNITY_6000_0_OR_NEWER
     [InitializeOnLoad]
+#endif
     internal static class VidaFrameworkToolbarButton
     {
+        private const string ButtonText = "FRAMEWORK";
+
+#if UNITY_6000_0_OR_NEWER
+        private const string ButtonPath = "Vida/Framework";
+
+        [MainToolbarElementAttribute(ButtonPath, defaultDockPosition = MainToolbarDockPosition.Right, defaultDockIndex = 1)]
+        private static MainToolbarButton CreateToolbarButton()
+        {
+            MainToolbarButton frameworkButton = new MainToolbarButton(
+                new MainToolbarContent(ButtonText, "Open Vida Framework Menu"),
+                OpenFrameworkMenu);
+
+            frameworkButton.displayed = true;
+            frameworkButton.enabled = true;
+            return frameworkButton;
+        }
+#else
         private const string ToolbarTypeName = "UnityEditor.Toolbar";
         private const string RootFieldName = "m_Root";
         private const string RightToolbarZoneName = "ToolbarZoneRightAlign";
         private const string ButtonName = "vida-framework-toolbar-button";
-        private const string ButtonText = "FRAMEWORK";
 
         private static readonly Color ButtonColor = new Color32(0x1B, 0x47, 0x6A, 0xFF);
         private static readonly Color ButtonHoverColor = new Color32(0x28, 0x74, 0xA6, 0xFF);
@@ -146,6 +171,7 @@ namespace Vida.Framework.Editor
             button.style.color = TextColor;
             button.style.unityFontStyleAndWeight = FontStyle.Bold;
         }
+#endif
 
         private static void OpenFrameworkMenu()
         {
