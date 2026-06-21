@@ -1,179 +1,517 @@
 using System.Collections.Generic;
-using System.Linq;
+using System.Text;
+using UnityEditor;
 using UnityEngine;
 using Vida.Framework.CodeEditor;
-using UnityEditor;
+using Vida.Framework.Editor;
 
 namespace Vida.Framework
 {
     public static class CodeEditorDrawer
     {
-        private static GUIStyle roundedBoxStyle;
+        private const float CardPadding = 12f;
+        private const float HeaderHeight = 34f;
+        private const float CodePadding = 10f;
+        private const float FallbackLineHeight = 16f;
+        private const float MinCardWidth = 360f;
+        private const string KeywordColor = "#CC7832";
+        private const string TypeColor = "#A9B7C6";
+        private const string StringColor = "#6A8759";
+        private const string NumberColor = "#6897BB";
+        private const string CommentColor = "#57A64A";
+        private const string OperatorColor = "#A9B7C6";
+        private const string AttributeColor = "#BBB529";
+
+        private static readonly Color CodeBackgroundColor = new Color32(0x12, 0x17, 0x22, 0xFF);
+        private static readonly Color GutterBackgroundColor = new Color32(0x0D, 0x12, 0x1B, 0xFF);
+        private static readonly Color BorderColor = new Color32(0x2A, 0x36, 0x48, 0xFF);
+        private static readonly Color AccentColor = new Color32(0x4C, 0xC6, 0xFF, 0xFF);
+        private static readonly Color HeaderTextColor = new Color32(0xF0, 0xF5, 0xFF, 0xFF);
+        private static readonly Color CodeTextColor = new Color32(0xD4, 0xD4, 0xD4, 0xFF);
+        private static readonly Color MutedTextColor = new Color32(0x7D, 0x8A, 0x9D, 0xFF);
+
+        private static readonly HashSet<string> Keywords = new HashSet<string>
+        {
+            "abstract", "as", "base", "break", "case", "catch", "checked", "class", "const", "continue",
+            "default", "delegate", "do", "else", "enum", "event", "explicit", "extern", "finally", "fixed",
+            "for", "foreach", "goto", "if", "implicit", "in", "interface", "internal", "is", "lock",
+            "namespace", "new", "operator", "out", "override", "params", "private", "protected", "public",
+            "readonly", "ref", "return", "sealed", "sizeof", "stackalloc", "static", "struct", "switch",
+            "this", "throw", "try", "typeof", "unchecked", "unsafe", "using", "virtual", "void", "volatile",
+            "while", "async", "await", "get", "set", "value", "var", "yield"
+        };
+
+        private static readonly HashSet<string> Types = new HashSet<string>
+        {
+            "bool", "byte", "char", "decimal", "double", "float", "int", "long", "object", "sbyte",
+            "short", "string", "uint", "ulong", "ushort", "Color", "Color32", "GameObject", "Transform",
+            "Vector2", "Vector3", "Vector4", "Quaternion", "Rect", "List", "Dictionary", "HashSet", "Action",
+            "Func", "Task", "MonoBehaviour", "ScriptableObject", "EditorWindow", "GUILayout", "GUI", "GUIStyle"
+        };
+
+        private static GUIStyle _headerStyle;
+        private static GUIStyle _codeLineStyle;
+        private static GUIStyle _selectableCodeStyle;
+        private static GUIStyle _lineNumberStyle;
+        private static GUIStyle _copyButtonStyle;
+        private static GUIStyle _chipStyle;
 
         public static void Reset()
         {
-            roundedBoxStyle = null;
-        }
-        
-        private static void TryInit()
-        {
-            // Initialize rounded box style if not created yet
-            if (roundedBoxStyle == null)
-            {
-                roundedBoxStyle = new GUIStyle(GUI.skin.box);
-                roundedBoxStyle.normal.background = MakeTex(1, 1, new Color(0.15f, 0.15f, 0.15f)); // Dark background
-                roundedBoxStyle.border = new RectOffset(12, 12, 12, 12); // Rounded corners
-            }
+            _headerStyle = null;
+            _codeLineStyle = null;
+            _selectableCodeStyle = null;
+            _lineNumberStyle = null;
+            _copyButtonStyle = null;
+            _chipStyle = null;
         }
 
         public static void DrawCodeLine(CodeData data, float width)
         {
             TryInit();
 
-            // Draw rounded background box
-            GUILayout.BeginHorizontal();
-            {
-                GUILayout.Space(10); // Add padding
+            string[] lines = GetCodeLines(data.data);
+            float cardWidth = Mathf.Max(MinCardWidth, width);
+            float lineHeight = GetCodeLineHeight();
+            float lineNumberWidth = GetLineNumberWidth(lines.Length);
+            float codeHeight = Mathf.Max(48f, lines.Length * lineHeight + CodePadding * 2f);
+            float cardHeight = HeaderHeight + codeHeight + CardPadding * 2f;
 
-                GUILayout.BeginVertical(roundedBoxStyle, GUILayout.Width(width));
-                {
-                    DrawHighlightedCode(data.data);
+            Rect cardRect = GUILayoutUtility.GetRect(cardWidth, cardHeight, GUILayout.Width(cardWidth), GUILayout.Height(cardHeight));
+            VidaPremiumGUI.DrawFrame(cardRect, "frame-panel.png");
+            DrawPremiumAccent(cardRect);
 
-                    var rect = GUILayoutUtility.GetLastRect();
-                    // force to right on the screen
-                    rect.x = width - 70;
-                    rect.width = 50;
-                    rect.height = 20;
-                    if (GUI.Button(rect, "Copy"))
-                    {
-                        EditorGUIUtility.systemCopyBuffer = data.data;
-                    }
-                    GUILayout.Space(10); // Add padding
-                }
-                GUILayout.EndVertical();
+            Rect headerRect = new Rect(cardRect.x + CardPadding, cardRect.y + CardPadding, cardRect.width - CardPadding * 2f, HeaderHeight);
+            DrawHeader(data, headerRect);
 
-                GUILayout.Space(10); // Add padding
-            }
-            GUILayout.EndHorizontal();
+            Rect codeRect = new Rect(headerRect.x, headerRect.yMax, headerRect.width, codeHeight);
+            DrawCodeBackground(codeRect, lineNumberWidth);
+            DrawLines(lines, codeRect, lineNumberWidth, lineHeight);
+            DrawSelectableCodeOverlay(data.data, codeRect, lineNumberWidth);
         }
 
-        // Method to draw code with keyword and type highlighting
-        private static void DrawHighlightedCode(string inputCode)
+        private static void TryInit()
         {
-            // Split input code into lines
-            string[] lines = inputCode.Split('\n');
+            if (_headerStyle != null)
+            {
+                return;
+            }
 
-            // Draw each line
+            Font codeFont = Font.CreateDynamicFontFromOSFont(new[] { "JetBrains Mono", "Menlo", "Monaco", "Consolas" }, 12);
+
+            _headerStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                clipping = TextClipping.Clip,
+                fontSize = 13
+            };
+            _headerStyle.normal.textColor = HeaderTextColor;
+
+            _codeLineStyle = new GUIStyle(EditorStyles.label)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                clipping = TextClipping.Clip,
+                font = codeFont,
+                fontSize = 12,
+                richText = true,
+                wordWrap = false
+            };
+            _codeLineStyle.normal.textColor = CodeTextColor;
+
+            _selectableCodeStyle = new GUIStyle(EditorStyles.label)
+            {
+                alignment = TextAnchor.UpperLeft,
+                clipping = TextClipping.Clip,
+                font = codeFont,
+                fontSize = 12,
+                richText = false,
+                wordWrap = false,
+                padding = new RectOffset(0, 0, 0, 0)
+            };
+            _selectableCodeStyle.normal.textColor = new Color(1f, 1f, 1f, 0f);
+            _selectableCodeStyle.active.textColor = new Color(1f, 1f, 1f, 0f);
+            _selectableCodeStyle.focused.textColor = new Color(1f, 1f, 1f, 0f);
+
+            _lineNumberStyle = new GUIStyle(EditorStyles.miniLabel)
+            {
+                alignment = TextAnchor.MiddleRight,
+                clipping = TextClipping.Clip,
+                font = codeFont,
+                fontSize = 11
+            };
+            _lineNumberStyle.normal.textColor = MutedTextColor;
+
+            _copyButtonStyle = new GUIStyle(EditorStyles.miniBoldLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                clipping = TextClipping.Clip
+            };
+            _copyButtonStyle.normal.textColor = HeaderTextColor;
+
+            _chipStyle = new GUIStyle(EditorStyles.miniBoldLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                clipping = TextClipping.Clip
+            };
+            _chipStyle.normal.textColor = MutedTextColor;
+        }
+
+        private static void DrawHeader(CodeData data, Rect headerRect)
+        {
+            Rect titleRect = new Rect(headerRect.x, headerRect.y, headerRect.width - 124f, headerRect.height);
+            GUI.Label(titleRect, data.header, _headerStyle);
+
+            string extension = GetExtensionLabel(data.fileName);
+            if (!string.IsNullOrEmpty(extension))
+            {
+                Rect chipRect = new Rect(headerRect.xMax - 116f, headerRect.y + 4f, 48f, 24f);
+                VidaPremiumGUI.DrawFrame(chipRect, "frame-chip.png");
+                GUI.Label(chipRect, extension, _chipStyle);
+            }
+
+            Rect copyRect = new Rect(headerRect.xMax - 62f, headerRect.y + 2f, 62f, 28f);
+            VidaPremiumGUI.DrawFrame(copyRect, "frame-button-secondary.png");
+            if (GUI.Button(copyRect, GUIContent.none, GUIStyle.none))
+            {
+                EditorGUIUtility.systemCopyBuffer = data.data;
+            }
+
+            GUI.Label(copyRect, "Copy", _copyButtonStyle);
+        }
+
+        private static void DrawPremiumAccent(Rect cardRect)
+        {
+            EditorGUI.DrawRect(new Rect(cardRect.x + 2f, cardRect.y + 2f, cardRect.width - 4f, 1f), AccentColor);
+        }
+
+        private static void DrawCodeBackground(Rect codeRect, float lineNumberWidth)
+        {
+            EditorGUI.DrawRect(codeRect, CodeBackgroundColor);
+            EditorGUI.DrawRect(new Rect(codeRect.x, codeRect.y, lineNumberWidth, codeRect.height), GutterBackgroundColor);
+            EditorGUI.DrawRect(new Rect(codeRect.x + lineNumberWidth, codeRect.y, 1f, codeRect.height), BorderColor);
+            EditorGUI.DrawRect(new Rect(codeRect.x, codeRect.y, codeRect.width, 1f), BorderColor);
+            EditorGUI.DrawRect(new Rect(codeRect.x, codeRect.yMax - 1f, codeRect.width, 1f), BorderColor);
+        }
+
+        private static void DrawLines(string[] lines, Rect codeRect, float lineNumberWidth, float lineHeight)
+        {
+            bool isBlockComment = false;
+            float y = codeRect.y + CodePadding;
             for (int i = 0; i < lines.Length; i++)
             {
-                int lineLength = lines[i].Length;
-                int lineSpaceLength = lines[i].Select(c => c == ' ' ? 1 : 0).Sum();
-                float guiWidth = lineLength * 1 - (lineSpaceLength * 5f) - 50;
+                Rect numberRect = new Rect(codeRect.x + 4f, y, lineNumberWidth - 10f, lineHeight);
+                Rect lineRect = new Rect(codeRect.x + lineNumberWidth + 10f, y, codeRect.width - lineNumberWidth - 18f, lineHeight);
 
-                GUILayout.BeginHorizontal(GUILayout.Width(guiWidth));
+                GUI.Label(numberRect, (i + 1).ToString(), _lineNumberStyle);
+                GUI.Label(lineRect, GetHighlightedLine(lines[i], ref isBlockComment), _codeLineStyle);
+                y += lineHeight;
+            }
+        }
 
-                // Process each word in the line
-                string[] words = lines[i].Split(' ');
-                for (int j = 0; j < words.Length; j++)
+        private static void DrawSelectableCodeOverlay(string code, Rect codeRect, float lineNumberWidth)
+        {
+            Rect selectableRect = new Rect(
+                codeRect.x + lineNumberWidth + 10f,
+                codeRect.y + CodePadding,
+                codeRect.width - lineNumberWidth - 18f,
+                codeRect.height - CodePadding * 2f);
+
+            EditorGUI.SelectableLabel(selectableRect, NormalizeCode(code), _selectableCodeStyle);
+        }
+
+        private static string GetHighlightedLine(string line, ref bool isBlockComment)
+        {
+            StringBuilder builder = new StringBuilder(line.Length * 2);
+            int index = 0;
+
+            while (index < line.Length)
+            {
+                if (isBlockComment)
                 {
-                    // Trim punctuation (e.g., semicolons, parentheses)
-                    string word = words[j];
-
-                    // Check if the word is a keyword or type
-                    if (keywordColorMap.ContainsKey(word))
+                    int blockEndIndex = line.IndexOf("*/", index, System.StringComparison.Ordinal);
+                    if (blockEndIndex < 0)
                     {
-                        // Use the color assigned to the keyword or type
-                        GUIStyle coloredStyle = new GUIStyle(EditorStyles.label);
-                        coloredStyle.normal.textColor = keywordColorMap[word];
-                        GUILayout.Label(word, coloredStyle);
+                        AppendColored(builder, line.Substring(index), CommentColor);
+                        return builder.ToString();
                     }
-                    else
+
+                    AppendColored(builder, line.Substring(index, blockEndIndex - index + 2), CommentColor);
+                    index = blockEndIndex + 2;
+                    isBlockComment = false;
+                    continue;
+                }
+
+                if (StartsWith(line, index, "//"))
+                {
+                    AppendColored(builder, line.Substring(index), CommentColor);
+                    break;
+                }
+
+                if (StartsWith(line, index, "/*"))
+                {
+                    int blockEndIndex = line.IndexOf("*/", index + 2, System.StringComparison.Ordinal);
+                    if (blockEndIndex < 0)
                     {
-                        // Default style for normal text
-                        GUILayout.Label(word, EditorStyles.label);
+                        AppendColored(builder, line.Substring(index), CommentColor);
+                        isBlockComment = true;
+                        break;
+                    }
+
+                    AppendColored(builder, line.Substring(index, blockEndIndex - index + 2), CommentColor);
+                    index = blockEndIndex + 2;
+                    continue;
+                }
+
+                char character = line[index];
+                if (character == '[' && index + 1 < line.Length && IsIdentifierStart(line[index + 1]))
+                {
+                    int attributeEndIndex = GetAttributeEndIndex(line, index);
+                    if (attributeEndIndex > index)
+                    {
+                        AppendColored(builder, line.Substring(index, attributeEndIndex - index + 1), AttributeColor);
+                        index = attributeEndIndex + 1;
+                        continue;
                     }
                 }
 
-                GUILayout.EndHorizontal();
+                if (character == '"' || character == '\'')
+                {
+                    int stringEndIndex = GetStringEndIndex(line, index, character);
+                    AppendColored(builder, line.Substring(index, stringEndIndex - index + 1), StringColor);
+                    index = stringEndIndex + 1;
+                    continue;
+                }
+
+                if (IsIdentifierStart(character))
+                {
+                    int endIndex = index + 1;
+                    while (endIndex < line.Length && IsIdentifierPart(line[endIndex]))
+                    {
+                        endIndex++;
+                    }
+
+                    string token = line.Substring(index, endIndex - index);
+                    AppendIdentifier(builder, token);
+                    index = endIndex;
+                    continue;
+                }
+
+                if (char.IsDigit(character))
+                {
+                    int endIndex = index + 1;
+                    while (endIndex < line.Length && IsNumberPart(line[endIndex]))
+                    {
+                        endIndex++;
+                    }
+
+                    AppendColored(builder, line.Substring(index, endIndex - index), NumberColor);
+                    index = endIndex;
+                    continue;
+                }
+
+                if (IsOperatorCharacter(character))
+                {
+                    AppendColored(builder, character.ToString(), OperatorColor);
+                    index++;
+                    continue;
+                }
+
+                AppendEscaped(builder, character);
+                index++;
+            }
+
+            return builder.ToString();
+        }
+
+        private static void AppendIdentifier(StringBuilder builder, string token)
+        {
+            if (Keywords.Contains(token))
+            {
+                AppendColored(builder, token, KeywordColor);
+                return;
+            }
+
+            if (Types.Contains(token))
+            {
+                AppendColored(builder, token, TypeColor);
+                return;
+            }
+
+            AppendEscaped(builder, token);
+        }
+
+        private static void AppendColored(StringBuilder builder, string text, string color)
+        {
+            builder.Append("<color=");
+            builder.Append(color);
+            builder.Append(">");
+            AppendEscaped(builder, text);
+            builder.Append("</color>");
+        }
+
+        private static void AppendEscaped(StringBuilder builder, string text)
+        {
+            for (int i = 0; i < text.Length; i++)
+            {
+                AppendEscaped(builder, text[i]);
             }
         }
 
-        // Helper method to convert hex color to Unity's Color
-        private static Color HexToColor(string hex)
+        private static void AppendEscaped(StringBuilder builder, char character)
         {
-            if (ColorUtility.TryParseHtmlString(hex, out Color color))
+            switch (character)
             {
-                return color;
+                case '<':
+                    builder.Append("&lt;");
+                    break;
+                case '>':
+                    builder.Append("&gt;");
+                    break;
+                case '&':
+                    builder.Append("&amp;");
+                    break;
+                default:
+                    builder.Append(character);
+                    break;
             }
-
-            return Color.white;
         }
 
-
-        // Visual Studio/Rider-like syntax coloring
-        private static Dictionary<string, Color> keywordColorMap =
-            new Dictionary<string, Color>
-            {
-                // C# Keywords
-                { "static", HexToColor("#f71ba7") },
-                { "public", HexToColor("#569CD6") },
-                { "private", HexToColor("#569CD6") },
-                { "protected", HexToColor("#569CD6") },
-                { "class", HexToColor("#569CD6") },
-                { "void", HexToColor("#569CD6") },
-                { "if", HexToColor("#569CD6") },
-                { "else", HexToColor("#569CD6") },
-                { "for", HexToColor("#569CD6") },
-                { "while", HexToColor("#569CD6") },
-                { "using", HexToColor("#569CD6") },
-                { "namespace", HexToColor("#569CD6") },
-                { "return", HexToColor("#569CD6") },
-                { "new", HexToColor("#569CD6") },
-                { "switch", HexToColor("#569CD6") },
-                { "case", HexToColor("#569CD6") },
-                { "default", HexToColor("#569CD6") },
-                { "try", HexToColor("#569CD6") },
-                { "catch", HexToColor("#569CD6") },
-                { "finally", HexToColor("#569CD6") },
-
-                // C# Types
-                { "int", HexToColor("#4EC9B0") },
-                { "float", HexToColor("#4EC9B0") },
-                { "double", HexToColor("#4EC9B0") },
-                { "string", HexToColor("#4EC9B0") },
-                { "bool", HexToColor("#4EC9B0") },
-                { "char", HexToColor("#4EC9B0") },
-                { "object", HexToColor("#4EC9B0") },
-
-                // Strings
-                { "\"", HexToColor("#D69D85") },
-
-                // Comments (Single-line comments)
-                { "//", HexToColor("#57A64A") },
-
-                // Operators (we use generic color for now)
-                { "=", HexToColor("#5232a8") },
-                { "+", HexToColor("#5232a8") },
-                { "-", HexToColor("#5232a8") },
-                { "*", HexToColor("#5232a8") },
-                { "/", HexToColor("#5232a8") },
-                { "(", HexToColor("#5232a8") },
-                { ")", HexToColor("#5232a8") },
-                { "{", HexToColor("#f71ba7") },
-                { "}", HexToColor("#f71ba7") },
-            };
-
-        // Helper method to create a solid color texture for GUI backgrounds
-        private static Texture2D MakeTex(int width, int height, Color col)
+        private static int GetStringEndIndex(string line, int startIndex, char quote)
         {
-            Color[] pix = new Color[width * height];
-            for (int i = 0; i < pix.Length; i++)
-                pix[i] = col;
+            bool isEscaped = false;
+            for (int i = startIndex + 1; i < line.Length; i++)
+            {
+                if (isEscaped)
+                {
+                    isEscaped = false;
+                    continue;
+                }
 
-            Texture2D result = new Texture2D(width, height);
-            result.SetPixels(pix);
-            result.Apply();
-            return result;
+                if (line[i] == '\\')
+                {
+                    isEscaped = true;
+                    continue;
+                }
+
+                if (line[i] == quote)
+                {
+                    return i;
+                }
+            }
+
+            return line.Length - 1;
+        }
+
+        private static int GetAttributeEndIndex(string line, int startIndex)
+        {
+            for (int i = startIndex + 1; i < line.Length; i++)
+            {
+                if (line[i] == ']')
+                {
+                    return i;
+                }
+
+                if (line[i] == '=' || line[i] == ';')
+                {
+                    return startIndex;
+                }
+            }
+
+            return startIndex;
+        }
+
+        private static string[] GetCodeLines(string code)
+        {
+            if (string.IsNullOrEmpty(code))
+            {
+                return new[] { "" };
+            }
+
+            return NormalizeCode(code).Split('\n');
+        }
+
+        private static string NormalizeCode(string code)
+        {
+            if (string.IsNullOrEmpty(code))
+            {
+                return "";
+            }
+
+            return code.Replace("\r\n", "\n").Replace('\r', '\n');
+        }
+
+        private static string GetExtensionLabel(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return "";
+            }
+
+            int dotIndex = fileName.LastIndexOf('.');
+            if (dotIndex < 0 || dotIndex >= fileName.Length - 1)
+            {
+                return "";
+            }
+
+            return fileName.Substring(dotIndex + 1).ToUpperInvariant();
+        }
+
+        private static float GetLineNumberWidth(int lineCount)
+        {
+            int digitCount = Mathf.Max(2, lineCount.ToString().Length);
+            return digitCount * 8f + 22f;
+        }
+
+        private static float GetCodeLineHeight()
+        {
+            if (_selectableCodeStyle == null)
+            {
+                return FallbackLineHeight;
+            }
+
+            return Mathf.Ceil(_selectableCodeStyle.lineHeight);
+        }
+
+        private static bool StartsWith(string line, int index, string value)
+        {
+            if (index + value.Length > line.Length)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (line[index + i] != value[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsIdentifierStart(char character)
+        {
+            return char.IsLetter(character) || character == '_' || character == '@';
+        }
+
+        private static bool IsIdentifierPart(char character)
+        {
+            return char.IsLetterOrDigit(character) || character == '_';
+        }
+
+        private static bool IsNumberPart(char character)
+        {
+            return char.IsLetterOrDigit(character) || character == '.' || character == '_';
+        }
+
+        private static bool IsOperatorCharacter(char character)
+        {
+            return character == '=' || character == '+' || character == '-' || character == '*' ||
+                   character == '/' || character == '%' || character == '!' || character == '?' ||
+                   character == ':' || character == ';' || character == ',' || character == '.' ||
+                   character == '(' || character == ')' || character == '{' || character == '}' ||
+                   character == '[' || character == ']' || character == '<' || character == '>';
         }
     }
 }

@@ -24,7 +24,7 @@ namespace Vida.Framework.Editor
 #if UNITY_6000_0_OR_NEWER
         private const string ButtonPath = "Vida/Framework";
 
-        [MainToolbarElementAttribute(ButtonPath, defaultDockPosition = MainToolbarDockPosition.Right, defaultDockIndex = 1)]
+        [MainToolbarElementAttribute(ButtonPath, defaultDockPosition = MainToolbarDockPosition.Right, defaultDockIndex = 2)]
         private static MainToolbarButton CreateToolbarButton()
         {
             MainToolbarButton frameworkButton = new MainToolbarButton(

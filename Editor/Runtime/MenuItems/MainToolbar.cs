@@ -146,7 +146,7 @@ namespace Vida.Framework.Editor
                     TemplatesWindow.RequestReload();
                     break;
                 case "Codes":
-                    DataReader.LoadData();
+                    global::Vida.Framework.CodesWindow.RequestReload();
                     break;
             }
         }
@@ -159,7 +159,7 @@ namespace Vida.Framework.Editor
 
             if (GetSelected() == "Codes")
             {
-                DataReader.LoadData();
+                global::Vida.Framework.CodesWindow.RequestReload();
             }
         }
 
