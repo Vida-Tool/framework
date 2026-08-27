@@ -21,17 +21,19 @@ namespace Vida.Framework.Editor
         {
             VidaPremiumGUI.DrawSidebarBackground(sidebarRect);
 
-            Rect innerRect = VidaPremiumGUI.GetInnerRect(sidebarRect, 12f);
+            bool isCompact = sidebarRect.width < 100f;
+            float padding = isCompact ? 10f : 12f;
+            Rect innerRect = VidaPremiumGUI.GetInnerRect(sidebarRect, padding);
             GUILayout.BeginArea(innerRect);
             {
-                VidaPremiumGUI.DrawBrandHeader();
-                GUILayout.Space(18f);
+                VidaPremiumGUI.DrawBrandHeader(logoTexture, isCompact);
+                GUILayout.Space(isCompact ? 12f : 18f);
 
                 for (int i = 0; i < _items.Length; i++)
                 {
                     ToolbarItem item = _items[i];
                     Rect itemRect = GUILayoutUtility.GetRect(innerRect.width, 42f, GUILayout.ExpandWidth(true), GUILayout.Height(42f));
-                    if (VidaPremiumGUI.DrawSidebarItem(itemRect, item.Label, VidaPremiumGUI.GetPremiumTexture(item.IconName), i == GetSelectedIndex()))
+                    if (VidaPremiumGUI.DrawSidebarItem(itemRect, item.Label, VidaPremiumGUI.GetPremiumTexture(item.IconName), i == GetSelectedIndex(), isCompact))
                     {
                         SetSelected(i);
                     }
@@ -43,16 +45,7 @@ namespace Vida.Framework.Editor
                 using (new GUILayout.HorizontalScope())
                 {
                     GUILayout.FlexibleSpace();
-                    VidaPremiumGUI.DrawConnectionStatus(VidaFramework.Connection, false);
-                    GUILayout.FlexibleSpace();
-                }
-
-                GUILayout.Space(10f);
-
-                using (new GUILayout.HorizontalScope())
-                {
-                    GUILayout.FlexibleSpace();
-                    VidaPremiumGUI.DrawSidebarLogo(logoTexture);
+                    VidaPremiumGUI.DrawConnectionStatus(VidaFramework.Connection, false, isCompact);
                     GUILayout.FlexibleSpace();
                 }
             }
@@ -64,18 +57,23 @@ namespace Vida.Framework.Editor
             VidaPremiumGUI.DrawHeaderBackground(headerRect);
 
             Rect innerRect = VidaPremiumGUI.GetInnerRect(headerRect, 12f);
+            bool useIconActions = headerRect.width < 720f;
             GUILayout.BeginArea(innerRect);
             {
                 using (new GUILayout.HorizontalScope())
                 {
-                    using (new GUILayout.VerticalScope(GUILayout.Width(230f)))
+                    using (new GUILayout.VerticalScope(GUILayout.Width(useIconActions ? 150f : 230f)))
                     {
                         VidaPremiumGUI.DrawHeaderInfo(GetSelected(), GetSelectedSubtitle());
                     }
 
                     GUILayout.FlexibleSpace();
 
-                    if (VidaPremiumGUI.DrawHeaderAction("Cache", VidaPremiumGUI.GetPremiumTexture("icon-cache-reset.png"), 92f))
+                    float cacheWidth = useIconActions ? 34f : 92f;
+                    float reloadWidth = useIconActions ? 34f : 96f;
+                    float logoutWidth = useIconActions ? 34f : 96f;
+
+                    if (VidaPremiumGUI.DrawHeaderAction("Cache", VidaPremiumGUI.GetPremiumTexture("icon-cache-reset.png"), cacheWidth, false, false, useIconActions))
                     {
                         GithubConnector.ClearUnityPackageCache(true);
                         ResetPackageWindowData();
@@ -84,7 +82,7 @@ namespace Vida.Framework.Editor
 
                     GUILayout.Space(6f);
 
-                    if (VidaPremiumGUI.DrawHeaderAction("Reload", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), 96f))
+                    if (VidaPremiumGUI.DrawHeaderAction("Reload", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), reloadWidth, false, false, useIconActions))
                     {
                         ReloadSelectedWindow();
                         ReloadNeeded = true;
@@ -93,7 +91,7 @@ namespace Vida.Framework.Editor
                     if (VidaFramework.Connection)
                     {
                         GUILayout.Space(6f);
-                        if (VidaPremiumGUI.DrawHeaderAction("Logout", VidaPremiumGUI.GetPremiumTexture("icon-logout.png"), 96f, false, true))
+                        if (VidaPremiumGUI.DrawHeaderAction("Logout", VidaPremiumGUI.GetPremiumTexture("icon-logout.png"), logoutWidth, false, true, useIconActions))
                         {
                             Logout();
                         }

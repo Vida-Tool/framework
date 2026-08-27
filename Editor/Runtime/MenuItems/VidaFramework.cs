@@ -24,18 +24,18 @@ namespace Vida.Framework.Editor
         [MenuItem("Vida/Menu")]
         internal static void OpenWindow()
         {
+            bool wasOpen = HasOpenInstances<VidaFramework>();
             var window = GetWindow<VidaFramework>();
-            Rect rect = window.position;
-            rect.width = 980;
-            rect.height = 600;
-            
-            float x = Screen.currentResolution.width / 2f - rect.width / 2;
-            float y = Screen.currentResolution.height / 2f - rect.height / 2;
-            rect.x = x;
-            rect.y = y;
-            
-            window.position = rect;
-            window.minSize = new Vector2(820, 440);
+            window.minSize = new Vector2(720f, 480f);
+
+            if (!wasOpen)
+            {
+                Rect mainWindowRect = EditorGUIUtility.GetMainWindowPosition();
+                Rect rect = new Rect(0f, 0f, 980f, 600f);
+                rect.center = mainWindowRect.center;
+                window.position = rect;
+            }
+
             window.titleContent = new GUIContent("Vida Framework","Framework menu");
             
             VDefineSymbolInjector.Inject();
@@ -76,7 +76,8 @@ namespace Vida.Framework.Editor
             VidaPremiumGUI.DrawWindowBackground(windowRect);
 
             float panelGap = VidaPremiumGUI.PanelGap;
-            Rect sidebarRect = new Rect(0f, 0f, VidaPremiumGUI.SidebarWidth, position.height);
+            float sidebarWidth = VidaPremiumGUI.GetSidebarWidth(position.width);
+            Rect sidebarRect = new Rect(0f, 0f, sidebarWidth, position.height);
             Rect headerRect = new Rect(sidebarRect.xMax + panelGap, 0f, position.width - sidebarRect.width - panelGap, VidaPremiumGUI.HeaderHeight);
             Rect contentRect = new Rect(headerRect.x, headerRect.yMax + panelGap, headerRect.width, position.height - headerRect.yMax - panelGap);
 
@@ -104,7 +105,14 @@ namespace Vida.Framework.Editor
 
         private void LoadTextures()
         {
-            _backgroundTexture = TextureLoader.GetTexture("vida-games-icon.png");
+            _backgroundTexture = TextureLoader.GetTexture("vida-hub-icon.png");
+        }
+
+        protected override void OnBackingScaleFactorChanged()
+        {
+            VidaPremiumGUI.ResetStyles();
+            global::Vida.Framework.CodeEditorDrawer.Reset();
+            Repaint();
         }
 
         private void StartAutoConnect()

@@ -157,9 +157,9 @@ namespace Vida.Framework
             List<CodeData> categoryCodes = GetCategoryCodes(category);
             int selectedCodeIndex = GetSelectedCodeIndex(category, categoryCodes);
             Vector2 scrollPosition = GetScrollPosition(category);
-            float panelWidth = Mathf.Max(260f, window.x - 200);
+            float panelWidth = Mathf.Max(280f, window.x - 170f);
 
-            GUILayout.BeginVertical(GUILayout.Width(1000));
+            GUILayout.BeginVertical(GUILayout.Width(panelWidth));
             {
                 DrawCodeFilterToolbar(category, categoryCodes, selectedCodeIndex, panelWidth);
                 GUILayout.Space(8f);
@@ -175,7 +175,7 @@ namespace Vida.Framework
                             continue;
                         }
 
-                        CodeEditorDrawer.DrawCodeLine(categoryCodes[i], window.x - 250);
+                        CodeEditorDrawer.DrawCodeLine(categoryCodes[i], panelWidth - 18f);
                         GUILayout.Space(14);
                     }
                 }
@@ -254,10 +254,10 @@ namespace Vida.Framework
                 clipping = TextClipping.Clip,
                 fontSize = 11
             };
-            _filterLabelStyle.normal.textColor = new Color32(0xB7, 0xC5, 0xD8, 0xFF);
+            _filterLabelStyle.normal.textColor = new Color32(0xC4, 0xBE, 0xC9, 0xFF);
 
             _filterSelectedLabelStyle = new GUIStyle(_filterLabelStyle);
-            _filterSelectedLabelStyle.normal.textColor = new Color32(0xF4, 0xFB, 0xFF, 0xFF);
+            _filterSelectedLabelStyle.normal.textColor = new Color32(0xF3, 0xF0, 0xEA, 0xFF);
         }
 
         private void TryHandleReloadRequest()

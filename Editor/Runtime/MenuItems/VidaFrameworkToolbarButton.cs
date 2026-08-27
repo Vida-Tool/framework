@@ -41,11 +41,11 @@ namespace Vida.Framework.Editor
         private const string RightToolbarZoneName = "ToolbarZoneRightAlign";
         private const string ButtonName = "vida-framework-toolbar-button";
 
-        private static readonly Color ButtonColor = new Color32(0x1B, 0x47, 0x6A, 0xFF);
-        private static readonly Color ButtonHoverColor = new Color32(0x28, 0x74, 0xA6, 0xFF);
-        private static readonly Color ButtonPressedColor = new Color32(0x12, 0x30, 0x48, 0xFF);
-        private static readonly Color BorderColor = new Color32(0x4C, 0xC6, 0xFF, 0xFF);
-        private static readonly Color TextColor = new Color32(0xF0, 0xF5, 0xFF, 0xFF);
+        private static readonly Color ButtonColor = new Color32(0x22, 0x20, 0x27, 0xFF);
+        private static readonly Color ButtonHoverColor = new Color32(0x2D, 0x2A, 0x35, 0xFF);
+        private static readonly Color ButtonPressedColor = new Color32(0x19, 0x18, 0x1C, 0xFF);
+        private static readonly Color BorderColor = new Color32(0x52, 0x4D, 0x5A, 0xFF);
+        private static readonly Color TextColor = new Color32(0xF3, 0xF0, 0xEA, 0xFF);
 
         private static readonly Type ToolbarType = typeof(UnityEditor.Editor).Assembly.GetType(ToolbarTypeName);
         private static readonly FieldInfo RootField = ToolbarType?.GetField(RootFieldName, BindingFlags.Instance | BindingFlags.NonPublic);

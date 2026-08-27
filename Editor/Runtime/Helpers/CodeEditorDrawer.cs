@@ -13,7 +13,7 @@ namespace Vida.Framework
         private const float HeaderHeight = 34f;
         private const float CodePadding = 10f;
         private const float FallbackLineHeight = 16f;
-        private const float MinCardWidth = 360f;
+        private const float MinCardWidth = 280f;
         private const string KeywordColor = "#CC7832";
         private const string TypeColor = "#A9B7C6";
         private const string StringColor = "#6A8759";
@@ -22,13 +22,13 @@ namespace Vida.Framework
         private const string OperatorColor = "#A9B7C6";
         private const string AttributeColor = "#BBB529";
 
-        private static readonly Color CodeBackgroundColor = new Color32(0x12, 0x17, 0x22, 0xFF);
-        private static readonly Color GutterBackgroundColor = new Color32(0x0D, 0x12, 0x1B, 0xFF);
-        private static readonly Color BorderColor = new Color32(0x2A, 0x36, 0x48, 0xFF);
-        private static readonly Color AccentColor = new Color32(0x4C, 0xC6, 0xFF, 0xFF);
-        private static readonly Color HeaderTextColor = new Color32(0xF0, 0xF5, 0xFF, 0xFF);
+        private static readonly Color CodeBackgroundColor = new Color32(0x15, 0x14, 0x18, 0xFF);
+        private static readonly Color GutterBackgroundColor = new Color32(0x10, 0x0F, 0x12, 0xFF);
+        private static readonly Color BorderColor = new Color32(0x36, 0x32, 0x3C, 0xFF);
+        private static readonly Color AccentColor = new Color32(0x7D, 0x76, 0xE8, 0xFF);
+        private static readonly Color HeaderTextColor = new Color32(0xF3, 0xF0, 0xEA, 0xFF);
         private static readonly Color CodeTextColor = new Color32(0xD4, 0xD4, 0xD4, 0xFF);
-        private static readonly Color MutedTextColor = new Color32(0x7D, 0x8A, 0x9D, 0xFF);
+        private static readonly Color MutedTextColor = new Color32(0x8F, 0x89, 0x95, 0xFF);
 
         private static readonly HashSet<string> Keywords = new HashSet<string>
         {

@@ -7,31 +7,36 @@ namespace Vida.Framework.Editor
 {
     public static class VidaPremiumGUI
     {
-        public const float PanelGap = 12f;
-        public const float SidebarWidth = 174f;
-        public const float HeaderHeight = 66f;
-        public const float ContentPadding = 14f;
+        public const float PanelGap = 1f;
+        public const float HeaderHeight = 64f;
+        public const float ContentPadding = 16f;
+
+        private const float CompactWindowWidth = 900f;
+        private const float CompactSidebarWidth = 68f;
+        private const float RegularSidebarWidth = 184f;
 
         private const float SidebarItemHeight = 42f;
         private const float ActionButtonHeight = 32f;
         private const float PackageRowHeight = 48f;
         private const float PackageHeaderHeight = 34f;
 
-        private static readonly Color WindowBackgroundColor = new Color32(0x12, 0x16, 0x1E, 0xFF);
-        private static readonly Color SidebarBackgroundColor = new Color32(0x0F, 0x14, 0x1C, 0xFF);
-        private static readonly Color HeaderBackgroundColor = new Color32(0x1A, 0x21, 0x2C, 0xFF);
-        private static readonly Color ContentBackgroundFallbackColor = new Color32(0x1D, 0x24, 0x30, 0xF2);
-        private static readonly Color HeaderTextColor = new Color32(0xF0, 0xF5, 0xFF, 0xFF);
-        private static readonly Color BodyTextColor = new Color32(0xD7, 0xE0, 0xEC, 0xFF);
-        private static readonly Color MutedTextColor = new Color32(0x94, 0xA2, 0xB5, 0xFF);
-        private static readonly Color AccentColor = new Color32(0x4C, 0xC6, 0xFF, 0xFF);
-        private static readonly Color SuccessColor = new Color32(0x5B, 0xD8, 0x8E, 0xFF);
-        private static readonly Color WarningColor = new Color32(0xF5, 0xC5, 0x52, 0xFF);
-        private static readonly Color DangerColor = new Color32(0xFF, 0x6B, 0x60, 0xFF);
+        private static readonly Color WindowBackgroundColor = new Color32(0x10, 0x0F, 0x12, 0xFF);
+        private static readonly Color SidebarBackgroundColor = new Color32(0x14, 0x13, 0x17, 0xFF);
+        private static readonly Color HeaderBackgroundColor = new Color32(0x18, 0x17, 0x1B, 0xFF);
+        private static readonly Color ContentBackgroundFallbackColor = new Color32(0x12, 0x11, 0x15, 0xFF);
+        private static readonly Color SurfaceColor = new Color32(0x1C, 0x1A, 0x20, 0xFF);
+        private static readonly Color RaisedSurfaceColor = new Color32(0x23, 0x21, 0x28, 0xFF);
+        private static readonly Color HoverSurfaceColor = new Color32(0x2A, 0x27, 0x30, 0xFF);
+        private static readonly Color BorderColor = new Color32(0x36, 0x32, 0x3C, 0xFF);
+        private static readonly Color HeaderTextColor = new Color32(0xF3, 0xF0, 0xEA, 0xFF);
+        private static readonly Color BodyTextColor = new Color32(0xD6, 0xD1, 0xC9, 0xFF);
+        private static readonly Color MutedTextColor = new Color32(0x96, 0x90, 0x9B, 0xFF);
+        private static readonly Color AccentColor = new Color32(0x7D, 0x76, 0xE8, 0xFF);
+        private static readonly Color SuccessColor = new Color32(0x78, 0xC6, 0x98, 0xFF);
+        private static readonly Color WarningColor = new Color32(0xD8, 0xB4, 0x6A, 0xFF);
+        private static readonly Color DangerColor = new Color32(0xD9, 0x78, 0x73, 0xFF);
 
         private static readonly Dictionary<string, Texture2D> TextureCache = new Dictionary<string, Texture2D>();
-        private static readonly Dictionary<string, GUIStyle> FrameStyleCache = new Dictionary<string, GUIStyle>();
-
         private static GUIStyle _brandTitleStyle;
         private static GUIStyle _brandSubtitleStyle;
         private static GUIStyle _sectionTitleStyle;
@@ -54,26 +59,6 @@ namespace Vida.Framework.Editor
         public static void DrawWindowBackground(Rect rect)
         {
             EditorGUI.DrawRect(rect, WindowBackgroundColor);
-
-            if (Event.current.type != EventType.Repaint)
-            {
-                return;
-            }
-
-            Color previousColor = GUI.color;
-            GUI.color = new Color(1f, 1f, 1f, 0.04f);
-
-            for (float x = rect.x + 28f; x < rect.xMax; x += 42f)
-            {
-                EditorGUI.DrawRect(new Rect(x, rect.y, 1f, rect.height), Color.white);
-            }
-
-            for (float y = rect.y + 26f; y < rect.yMax; y += 42f)
-            {
-                EditorGUI.DrawRect(new Rect(rect.x, y, rect.width, 1f), Color.white);
-            }
-
-            GUI.color = previousColor;
         }
 
         public static void DrawSidebarBackground(Rect rect)
@@ -93,14 +78,15 @@ namespace Vida.Framework.Editor
 
         public static void DrawFrame(Rect rect, string frameName)
         {
-            GUIStyle style = GetFrameStyle(frameName);
-            if (style == null)
-            {
-                EditorGUI.DrawRect(rect, ContentBackgroundFallbackColor);
-                return;
-            }
+            Color background = GetFrameBackground(frameName);
+            Color border = frameName == "frame-button-primary.png" ? AccentColor : BorderColor;
+            EditorGUI.DrawRect(rect, border);
+            EditorGUI.DrawRect(new Rect(rect.x + 1f, rect.y + 1f, Mathf.Max(0f, rect.width - 2f), Mathf.Max(0f, rect.height - 2f)), background);
 
-            GUI.Box(rect, GUIContent.none, style);
+            if (frameName == "frame-panel-selected.png")
+            {
+                EditorGUI.DrawRect(new Rect(rect.x, rect.y, 2f, rect.height), AccentColor);
+            }
         }
 
         public static void DrawSidebarLogo(Texture2D texture)
@@ -122,15 +108,42 @@ namespace Vida.Framework.Editor
 
         public static Rect GetInnerRect(Rect rect, float padding = ContentPadding)
         {
-            return new Rect(rect.x + padding, rect.y + padding, rect.width - padding * 2f, rect.height - padding * 2f);
+            return new Rect(rect.x + padding, rect.y + padding, Mathf.Max(0f, rect.width - padding * 2f), Mathf.Max(0f, rect.height - padding * 2f));
         }
 
-        public static void DrawBrandHeader()
+        public static bool IsCompact(float windowWidth)
         {
-            using (new GUILayout.VerticalScope())
+            return windowWidth < CompactWindowWidth;
+        }
+
+        public static float GetSidebarWidth(float windowWidth)
+        {
+            return IsCompact(windowWidth) ? CompactSidebarWidth : RegularSidebarWidth;
+        }
+
+        public static void DrawBrandHeader(Texture2D texture, bool isCompact)
+        {
+            float iconSize = isCompact ? 42f : 46f;
+            using (new GUILayout.HorizontalScope())
             {
-                GUILayout.Label("Vida", BrandTitleStyle);
-                GUILayout.Label("Framework", BrandSubtitleStyle);
+                GUILayout.FlexibleSpace();
+                if (texture != null)
+                {
+                    GUILayout.Label(texture, GUILayout.Width(iconSize), GUILayout.Height(iconSize));
+                }
+
+                if (!isCompact)
+                {
+                    GUILayout.Space(10f);
+                    using (new GUILayout.VerticalScope())
+                    {
+                        GUILayout.Space(5f);
+                        GUILayout.Label("Vida", BrandTitleStyle);
+                        GUILayout.Label("Framework", BrandSubtitleStyle);
+                    }
+                }
+
+                GUILayout.FlexibleSpace();
             }
         }
 
@@ -165,14 +178,17 @@ namespace Vida.Framework.Editor
             return nextIndex;
         }
 
-        public static bool DrawSidebarItem(Rect rect, string label, Texture2D icon, bool isSelected)
+        public static bool DrawSidebarItem(Rect rect, string label, Texture2D icon, bool isSelected, bool iconOnly = false)
         {
             bool isHover = rect.Contains(Event.current.mousePosition);
             string frame = isSelected ? "frame-panel-selected.png" : isHover ? "frame-row-hover.png" : "frame-row.png";
             DrawFrame(rect, frame);
 
             bool clicked = GUI.Button(rect, GUIContent.none, GUIStyle.none);
-            Rect iconRect = new Rect(rect.x + 10f, rect.y + 6f, 30f, 30f);
+            float iconSize = iconOnly ? 26f : 24f;
+            Rect iconRect = iconOnly
+                ? new Rect(rect.center.x - iconSize * 0.5f, rect.center.y - iconSize * 0.5f, iconSize, iconSize)
+                : new Rect(rect.x + 12f, rect.center.y - iconSize * 0.5f, iconSize, iconSize);
             Rect labelRect = new Rect(rect.x + 48f, rect.y + 1f, rect.width - 56f, rect.height - 2f);
 
             if (icon != null)
@@ -180,11 +196,19 @@ namespace Vida.Framework.Editor
                 GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
             }
 
-            GUI.Label(labelRect, label, isSelected ? SidebarSelectedLabelStyle : SidebarLabelStyle);
+            if (!iconOnly)
+            {
+                GUI.Label(labelRect, label, isSelected ? SidebarSelectedLabelStyle : SidebarLabelStyle);
+            }
+            else
+            {
+                GUI.Label(rect, new GUIContent(string.Empty, label));
+            }
+
             return clicked;
         }
 
-        public static bool DrawHeaderAction(string label, Texture2D icon, float width, bool isPrimary = false, bool isDanger = false)
+        public static bool DrawHeaderAction(string label, Texture2D icon, float width, bool isPrimary = false, bool isDanger = false, bool iconOnly = false)
         {
             Rect rect = GUILayoutUtility.GetRect(width, ActionButtonHeight, GUILayout.Width(width), GUILayout.Height(ActionButtonHeight));
             bool isHover = rect.Contains(Event.current.mousePosition);
@@ -197,7 +221,9 @@ namespace Vida.Framework.Editor
                 DrawHoverTint(rect, isPrimary ? 0.12f : 0.075f);
             }
 
-            Rect iconRect = new Rect(rect.x + 8f, rect.y + 6f, 20f, 20f);
+            Rect iconRect = iconOnly
+                ? new Rect(rect.center.x - 10f, rect.center.y - 10f, 20f, 20f)
+                : new Rect(rect.x + 8f, rect.y + 6f, 20f, 20f);
             Rect labelRect = new Rect(rect.x + 31f, rect.y, rect.width - 36f, rect.height);
 
             if (icon != null)
@@ -205,7 +231,15 @@ namespace Vida.Framework.Editor
                 GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
             }
 
-            GUI.Label(labelRect, label, isPrimary ? ActionPrimaryLabelStyle : ActionLabelStyle);
+            if (!iconOnly)
+            {
+                GUI.Label(labelRect, label, isPrimary ? ActionPrimaryLabelStyle : ActionLabelStyle);
+            }
+            else
+            {
+                GUI.Label(rect, new GUIContent(string.Empty, label));
+            }
+
             return clicked;
         }
 
@@ -235,25 +269,34 @@ namespace Vida.Framework.Editor
             GUI.color = previousColor;
         }
 
-        public static void DrawConnectionStatus(bool isConnected, bool isRefreshing)
+        public static void DrawConnectionStatus(bool isConnected, bool isRefreshing, bool iconOnly = false)
         {
             string textureName = isRefreshing ? "status-refreshing.png" : isConnected ? "status-connected.png" : "status-disconnected.png";
             string label = isRefreshing ? "Refreshing" : isConnected ? "Connected" : "Offline";
             Color labelColor = isRefreshing ? WarningColor : isConnected ? SuccessColor : DangerColor;
 
-            Rect rect = GUILayoutUtility.GetRect(118f, ActionButtonHeight, GUILayout.Width(118f), GUILayout.Height(ActionButtonHeight));
+            float width = iconOnly ? ActionButtonHeight : 118f;
+            Rect rect = GUILayoutUtility.GetRect(width, ActionButtonHeight, GUILayout.Width(width), GUILayout.Height(ActionButtonHeight));
             DrawFrame(rect, "frame-chip.png");
 
             Texture2D icon = GetPremiumTexture(textureName);
             if (icon != null)
             {
-                GUI.DrawTexture(new Rect(rect.x + 9f, rect.y + 8f, 16f, 16f), icon, ScaleMode.ScaleToFit);
+                float iconX = iconOnly ? rect.center.x - 8f : rect.x + 9f;
+                GUI.DrawTexture(new Rect(iconX, rect.y + 8f, 16f, 16f), icon, ScaleMode.ScaleToFit);
             }
 
-            Color previousColor = GUI.color;
-            GUI.color = labelColor;
-            GUI.Label(new Rect(rect.x + 30f, rect.y, rect.width - 36f, rect.height), label, ChipLabelStyle);
-            GUI.color = previousColor;
+            if (!iconOnly)
+            {
+                Color previousColor = GUI.color;
+                GUI.color = labelColor;
+                GUI.Label(new Rect(rect.x + 30f, rect.y, rect.width - 36f, rect.height), label, ChipLabelStyle);
+                GUI.color = previousColor;
+            }
+            else
+            {
+                GUI.Label(rect, new GUIContent(string.Empty, label));
+            }
         }
 
         public static void DrawSectionHeader(string title, string subtitle)
@@ -278,8 +321,11 @@ namespace Vida.Framework.Editor
             float x = rect.x + 12f;
             float y = rect.y + 8f;
 
-            GUI.Label(new Rect(x, y, categoryWidth - 12f, 18f), "Kategori", TableHeaderStyle);
-            x += categoryWidth;
+            if (StarterPackageInfoExtensions.ShouldShowCategory(rect.width))
+            {
+                GUI.Label(new Rect(x, y, categoryWidth - 12f, 18f), "Kategori", TableHeaderStyle);
+                x += categoryWidth;
+            }
             GUI.Label(new Rect(x, y, nameWidth - 12f, 18f), "Paket adı", TableHeaderStyle);
             x += nameWidth;
             GUI.Label(new Rect(x, y, versionWidth - 12f, 18f), "Versiyon", TableHeaderStyle);
@@ -293,14 +339,18 @@ namespace Vida.Framework.Editor
             DrawFrame(rect, isHover ? "frame-row-hover.png" : "frame-row.png");
 
             StarterPackageInfoExtensions.GetColumnWidths(rect.width, out float categoryWidth, out float nameWidth, out float versionWidth, out float downloadWidth);
-            Rect categoryRect = new Rect(rect.x + 10f, rect.y + 11f, Mathf.Max(66f, categoryWidth - 20f), 24f);
-            DrawFrame(categoryRect, "frame-chip.png");
+            bool showCategory = StarterPackageInfoExtensions.ShouldShowCategory(rect.width);
+            if (showCategory)
+            {
+                Rect categoryRect = new Rect(rect.x + 10f, rect.y + 11f, Mathf.Max(66f, categoryWidth - 20f), 24f);
+                DrawFrame(categoryRect, "frame-chip.png");
+                GUI.Label(new Rect(categoryRect.x + 10f, categoryRect.y + 2f, categoryRect.width - 20f, 20f), displayInfo.Category, ChipLabelStyle);
+            }
 
-            GUI.Label(new Rect(categoryRect.x + 10f, categoryRect.y + 2f, categoryRect.width - 20f, 20f), displayInfo.Category, ChipLabelStyle);
-
-            float x = rect.x + categoryWidth + 10f;
+            float x = rect.x + (showCategory ? categoryWidth : 0f) + 10f;
             GUI.Label(new Rect(x, rect.y + 8f, nameWidth - 18f, 20f), displayInfo.Name, RowLabelStyle);
-            GUI.Label(new Rect(x, rect.y + 28f, nameWidth - 18f, 16f), "Unity package", RowMutedLabelStyle);
+            string subtitle = showCategory ? "Unity package" : displayInfo.Category + "  ·  Unity package";
+            GUI.Label(new Rect(x, rect.y + 28f, nameWidth - 18f, 16f), subtitle, RowMutedLabelStyle);
 
             x += nameWidth;
             GUI.Label(new Rect(x, rect.y + 15f, versionWidth - 12f, 18f), string.IsNullOrEmpty(displayInfo.Version) ? "-" : displayInfo.Version, RowMutedLabelStyle);
@@ -378,6 +428,28 @@ namespace Vida.Framework.Editor
             return texture;
         }
 
+        public static void ResetStyles()
+        {
+            _brandTitleStyle = null;
+            _brandSubtitleStyle = null;
+            _sectionTitleStyle = null;
+            _sectionSubtitleStyle = null;
+            _sidebarLabelStyle = null;
+            _sidebarSelectedLabelStyle = null;
+            _tableHeaderStyle = null;
+            _rowLabelStyle = null;
+            _rowMutedLabelStyle = null;
+            _centerTitleStyle = null;
+            _centerSubtitleStyle = null;
+            _actionLabelStyle = null;
+            _actionPrimaryLabelStyle = null;
+            _chipLabelStyle = null;
+            _segmentLabelStyle = null;
+            _segmentSelectedLabelStyle = null;
+            _searchFieldStyle = null;
+            _inlineMessageStyle = null;
+        }
+
         private static bool DrawInlineActionButton(Rect rect, string label, Texture2D icon, bool isPrimary)
         {
             bool isHover = GUI.enabled && rect.Contains(Event.current.mousePosition);
@@ -401,7 +473,7 @@ namespace Vida.Framework.Editor
         {
             Rect rect = GUILayoutUtility.GetRect(1f, height, GUILayout.ExpandWidth(true), GUILayout.Height(height));
             float width = rect.width > 1f ? rect.width : fallbackWidth;
-            rect.width = Mathf.Max(280f, width - 18f);
+            rect.width = Mathf.Max(220f, width - 4f);
             return rect;
         }
 
@@ -418,55 +490,30 @@ namespace Vida.Framework.Editor
             GUI.color = previousColor;
         }
 
-        private static GUIStyle GetFrameStyle(string frameName)
-        {
-            if (FrameStyleCache.TryGetValue(frameName, out GUIStyle style))
-            {
-                return style;
-            }
-
-            Texture2D texture = GetPremiumTexture(frameName);
-            if (texture == null)
-            {
-                return null;
-            }
-
-            style = new GUIStyle(GUIStyle.none)
-            {
-                normal = { background = texture },
-                border = GetFrameBorder(frameName),
-                margin = new RectOffset(0, 0, 0, 0),
-                padding = new RectOffset(0, 0, 0, 0),
-                overflow = new RectOffset(0, 0, 0, 0),
-                stretchWidth = true,
-                stretchHeight = true
-            };
-
-            FrameStyleCache[frameName] = style;
-            return style;
-        }
-
-        private static RectOffset GetFrameBorder(string frameName)
+        private static Color GetFrameBackground(string frameName)
         {
             switch (frameName)
             {
-                case "frame-panel.png":
                 case "frame-panel-selected.png":
-                case "frame-sidebar.png":
-                    return new RectOffset(20, 20, 20, 20);
-                case "frame-header.png":
-                    return new RectOffset(16, 16, 16, 16);
-                case "frame-button-primary.png":
-                case "frame-button-secondary.png":
-                case "frame-button-danger.png":
-                case "frame-row.png":
+                    return RaisedSurfaceColor;
                 case "frame-row-hover.png":
+                    return HoverSurfaceColor;
+                case "frame-button-primary.png":
+                    return AccentColor;
+                case "frame-button-danger.png":
+                    return new Color32(0x45, 0x24, 0x27, 0xFF);
+                case "frame-button-secondary.png":
                 case "frame-search.png":
-                    return new RectOffset(12, 12, 12, 12);
                 case "frame-chip.png":
-                    return new RectOffset(10, 10, 10, 10);
+                    return RaisedSurfaceColor;
+                case "frame-header.png":
+                    return new Color32(0x17, 0x16, 0x1A, 0xFF);
+                case "frame-sidebar.png":
+                case "frame-panel.png":
+                case "frame-row.png":
+                    return SurfaceColor;
                 default:
-                    return new RectOffset(12, 12, 12, 12);
+                    return SurfaceColor;
             }
         }
 
@@ -478,7 +525,7 @@ namespace Vida.Framework.Editor
                 {
                     _brandTitleStyle = new GUIStyle(EditorStyles.boldLabel)
                     {
-                        alignment = TextAnchor.MiddleCenter,
+                        alignment = TextAnchor.MiddleLeft,
                         fontSize = 16,
                         normal = { textColor = HeaderTextColor }
                     };
@@ -496,7 +543,7 @@ namespace Vida.Framework.Editor
                 {
                     _brandSubtitleStyle = new GUIStyle(EditorStyles.miniLabel)
                     {
-                        alignment = TextAnchor.MiddleCenter,
+                        alignment = TextAnchor.MiddleLeft,
                         normal = { textColor = MutedTextColor }
                     };
                 }
