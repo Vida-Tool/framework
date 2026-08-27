@@ -81,8 +81,18 @@ namespace Vida.Framework.Editor
             Rect contentRect = new Rect(headerRect.x, headerRect.yMax + panelGap, headerRect.width, position.height - headerRect.yMax - panelGap);
 
             _mainToolbar.DrawSidebar(sidebarRect, _backgroundTexture);
-            _mainToolbar.DrawHeader(headerRect, _home.StartLogin);
+            _mainToolbar.DrawHeader(headerRect);
             VidaPremiumGUI.DrawContentBackground(contentRect);
+
+            if (!Connection)
+            {
+                GUILayout.BeginArea(contentRect);
+                {
+                    _home.Draw(contentRect.size);
+                }
+                GUILayout.EndArea();
+                return;
+            }
 
             Rect innerContentRect = VidaPremiumGUI.GetInnerRect(contentRect);
             GUILayout.BeginArea(innerContentRect);
@@ -109,16 +119,10 @@ namespace Vida.Framework.Editor
 
         private void DrawSelectedContent(Vector2 contentSize)
         {
-            if (!Connection)
-            {
-                _home.Draw();
-                return;
-            }
-
             switch (_mainToolbar.GetSelected())
             {
                 case "Home":
-                    _home.Draw();
+                    _home.Draw(contentSize);
                     break;
                 case "Starter":
                     _starterWindow.Draw(contentSize);

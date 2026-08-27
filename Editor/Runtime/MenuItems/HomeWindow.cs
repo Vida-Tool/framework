@@ -26,11 +26,11 @@ namespace Vida.Framework.Editor
         /// <summary>
         /// Arayüzün çizimini gerçekleştirir.
         /// </summary>
-        public void Draw()
+        public void Draw(Vector2 contentSize)
         {
             if (!VidaFramework.Connection)
             {
-                GitLogin();
+                GitLogin(contentSize);
                 return;
             }
 
@@ -44,73 +44,64 @@ namespace Vida.Framework.Editor
         /// <summary>
         /// GitHub bağlantısı için giriş ekranını çizer.
         /// </summary>
-        private void GitLogin()
+        private void GitLogin(Vector2 contentSize)
         {
-            GUILayout.FlexibleSpace();
+            const float pagePadding = 36f;
+            float formWidth = Mathf.Max(320f, contentSize.x - pagePadding * 2f);
+
+            VidaPremiumGUI.DrawContentBackground(new Rect(0f, 0f, contentSize.x, contentSize.y));
+            GUILayout.Space(pagePadding);
+
             using (new GUILayout.HorizontalScope())
             {
-                GUILayout.FlexibleSpace();
-                Rect cardRect = EditorGUILayout.BeginVertical(GUILayout.Width(440f), GUILayout.Height(224f));
+                GUILayout.Space(pagePadding);
+
+                using (new GUILayout.VerticalScope(GUILayout.Width(formWidth)))
                 {
-                    VidaPremiumGUI.DrawFrame(cardRect, "frame-panel.png");
-                    GUILayout.Space(18f);
+                    VidaPremiumGUI.DrawSectionHeader("GitHub Connection", "Connect once to load Vida framework packages.");
+                    using (new EditorGUI.DisabledScope(_isConnecting))
+                    {
+                        ApiKey = VidaPremiumGUI.DrawPasswordField(ApiKey, formWidth);
+                    }
+
+                    GUILayout.Space(8f);
+                    VidaPremiumGUI.DrawInlineMessage(_loginStatus, _hasLoginError);
+                    GUILayout.Space(10f);
 
                     using (new GUILayout.HorizontalScope())
                     {
-                        GUILayout.Space(18f);
-
-                        using (new GUILayout.VerticalScope(GUILayout.Width(404f)))
+                        string tryLabel = _isConnecting ? "Cancel" : "Try";
+                        Texture2D tryIcon = VidaPremiumGUI.GetPremiumTexture(_isConnecting ? "icon-logout.png" : "icon-reload.png");
+                        using (new EditorGUI.DisabledScope(!_isConnecting && string.IsNullOrWhiteSpace(ApiKey)))
                         {
-                            VidaPremiumGUI.DrawSectionHeader("GitHub Connection", "Connect once to load Vida framework packages.");
-                            using (new EditorGUI.DisabledScope(_isConnecting))
+                            if (VidaPremiumGUI.DrawHeaderAction(tryLabel, tryIcon, 160f, false, _isConnecting))
                             {
-                                ApiKey = VidaPremiumGUI.DrawPasswordField(ApiKey, 404f);
-                            }
-
-                            GUILayout.Space(8f);
-                            VidaPremiumGUI.DrawInlineMessage(_loginStatus, _hasLoginError);
-                            GUILayout.Space(10f);
-
-                            using (new GUILayout.HorizontalScope())
-                            {
-                                string tryLabel = _isConnecting ? "Cancel" : "Try";
-                                Texture2D tryIcon = VidaPremiumGUI.GetPremiumTexture(_isConnecting ? "icon-logout.png" : "icon-reload.png");
-                                using (new EditorGUI.DisabledScope(!_isConnecting && string.IsNullOrWhiteSpace(ApiKey)))
+                                if (_isConnecting)
                                 {
-                                    if (VidaPremiumGUI.DrawHeaderAction(tryLabel, tryIcon, 128f, false, _isConnecting))
-                                    {
-                                        if (_isConnecting)
-                                        {
-                                            CancelLogin();
-                                        }
-                                        else
-                                        {
-                                            TryConnectOnceAsync(false);
-                                        }
-                                    }
+                                    CancelLogin();
                                 }
-
-                                GUILayout.Space(8f);
-
-                                using (new EditorGUI.DisabledScope(_isConnecting || string.IsNullOrWhiteSpace(ApiKey)))
+                                else
                                 {
-                                    if (VidaPremiumGUI.DrawHeaderAction("Login", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 128f, true))
-                                    {
-                                        StartLogin();
-                                    }
+                                    TryConnectOnceAsync(false);
                                 }
                             }
                         }
 
-                        GUILayout.Space(18f);
-                    }
+                        GUILayout.Space(8f);
 
-                    GUILayout.FlexibleSpace();
+                        using (new EditorGUI.DisabledScope(_isConnecting || string.IsNullOrWhiteSpace(ApiKey)))
+                        {
+                            if (VidaPremiumGUI.DrawHeaderAction("Login", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 160f, true))
+                            {
+                                StartLogin();
+                            }
+                        }
+                    }
                 }
-                EditorGUILayout.EndVertical();
 
                 GUILayout.FlexibleSpace();
             }
+
             GUILayout.FlexibleSpace();
         }
 
@@ -130,7 +121,7 @@ namespace Vida.Framework.Editor
         /// <summary>
         /// Starts login attempts in the main window.
         /// </summary>
-        public void StartLogin()
+        private void StartLogin()
         {
             if (VidaFramework.Connection || _isConnecting)
             {
