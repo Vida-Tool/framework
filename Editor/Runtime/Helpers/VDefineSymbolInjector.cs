@@ -1,8 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Build;
-using UnityEngine;
 
 namespace Vida.Framework.Editor
 {
@@ -12,8 +9,17 @@ namespace Vida.Framework.Editor
         {
             // Inject here
             // Add : "UNITASK_DOTWEEN_SUPPORT", "DOTWEEN_TEXTMESHPRO"
-            
-            var symbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(EditorUserBuildSettings.selectedBuildTargetGroup);
+
+            Inject(NamedBuildTarget.Android);
+            Inject(NamedBuildTarget.iOS);
+            Inject(NamedBuildTarget.Standalone);
+
+            AssetDatabase.Refresh();
+        }
+
+        private static void Inject(NamedBuildTarget buildTarget)
+        {
+            string symbols = PlayerSettings.GetScriptingDefineSymbols(buildTarget);
 
             bool changed = false;
 
@@ -27,22 +33,12 @@ namespace Vida.Framework.Editor
                 symbols += ";DOTWEEN_TEXTMESHPRO";
                 changed = true;
             }
-             
+
 
             if (changed)
             {
-                Inject(symbols);
+                PlayerSettings.SetScriptingDefineSymbols(buildTarget, symbols);
             }
-            
-            AssetDatabase.Refresh();
-        }
-
-        private static void Inject(string symbols)
-        {
-            PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.Android,symbols);
-            PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.iOS,symbols);
-            PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.Standalone,symbols);
-            PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.Unknown,symbols);
         }
     }
 }

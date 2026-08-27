@@ -34,34 +34,43 @@ namespace Vida.Framework.Editor
             using (new GUILayout.HorizontalScope())
             {
                 GUILayout.FlexibleSpace();
-                using (new GUILayout.VerticalScope(GUILayout.Width(440f)))
+                Rect cardRect = EditorGUILayout.BeginVertical(GUILayout.Width(440f), GUILayout.Height(190f));
                 {
-                    Rect cardRect = GUILayoutUtility.GetRect(440f, 190f, GUILayout.Width(440f), GUILayout.Height(190f));
                     VidaPremiumGUI.DrawFrame(cardRect, "frame-panel-selected.png");
+                    GUILayout.Space(18f);
 
-                    GUILayout.BeginArea(VidaPremiumGUI.GetInnerRect(cardRect, 18f));
+                    using (new GUILayout.HorizontalScope())
                     {
-                        VidaPremiumGUI.DrawSectionHeader("GitHub Connection", "Connect once to load Vida framework packages.");
-                        ApiKey = VidaPremiumGUI.DrawSearchField(ApiKey, 404f);
-                        GUILayout.Space(14f);
+                        GUILayout.Space(18f);
 
-                        using (new GUILayout.HorizontalScope())
+                        using (new GUILayout.VerticalScope(GUILayout.Width(404f)))
                         {
-                            if (VidaPremiumGUI.DrawHeaderAction("Try", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), 128f))
-                            {
-                                TryConnectAsync();
-                            }
+                            VidaPremiumGUI.DrawSectionHeader("GitHub Connection", "Connect once to load Vida framework packages.");
+                            ApiKey = VidaPremiumGUI.DrawSearchField(ApiKey, 404f);
+                            GUILayout.Space(14f);
 
-                            GUILayout.Space(8f);
-
-                            if (VidaPremiumGUI.DrawHeaderAction("Login", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 128f, true))
+                            using (new GUILayout.HorizontalScope())
                             {
-                                LoginAsync();
+                                if (VidaPremiumGUI.DrawHeaderAction("Try", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), 128f))
+                                {
+                                    TryConnectAsync();
+                                }
+
+                                GUILayout.Space(8f);
+
+                                if (VidaPremiumGUI.DrawHeaderAction("Login", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 128f, true))
+                                {
+                                    LoginAsync();
+                                }
                             }
                         }
+
+                        GUILayout.Space(18f);
                     }
-                    GUILayout.EndArea();
+
+                    GUILayout.FlexibleSpace();
                 }
+                EditorGUILayout.EndVertical();
 
                 GUILayout.FlexibleSpace();
             }

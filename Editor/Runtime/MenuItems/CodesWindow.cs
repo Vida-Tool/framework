@@ -107,32 +107,39 @@ namespace Vida.Framework
         {
             float boxWidth = 156f;
             float boxHeight = Mathf.Max(160f, windowSize.y - 104f);
-            Rect sidebarRect = GUILayoutUtility.GetRect(boxWidth, boxHeight, GUILayout.Width(boxWidth), GUILayout.Height(boxHeight));
-            VidaPremiumGUI.DrawFrame(sidebarRect, "frame-sidebar.png");
-
-            Rect innerRect = VidaPremiumGUI.GetInnerRect(sidebarRect, 10f);
-            GUI.BeginGroup(innerRect);
-            GUILayout.BeginArea(new Rect(0f, 0f, innerRect.width, innerRect.height));
+            Rect sidebarRect = EditorGUILayout.BeginVertical(GUILayout.Width(boxWidth), GUILayout.Height(boxHeight));
             {
-                for (int i = 0; i < items.Length; i++)
+                VidaPremiumGUI.DrawFrame(sidebarRect, "frame-sidebar.png");
+                GUILayout.Space(10f);
+
+                using (new GUILayout.HorizontalScope())
                 {
-                    Rect itemRect = GUILayoutUtility.GetRect(boxWidth - 20f, 36f, GUILayout.ExpandWidth(true), GUILayout.Height(36f));
-                    if (VidaPremiumGUI.DrawSidebarItem(itemRect, items[i], VidaPremiumGUI.GetPremiumTexture("icon-codes.png"), _selectedCategory == i))
+                    GUILayout.Space(10f);
+
+                    using (new GUILayout.VerticalScope(GUILayout.Width(boxWidth - 20f), GUILayout.Height(boxHeight - 20f)))
                     {
-                        _selectedCategory = i;
+                        for (int i = 0; i < items.Length; i++)
+                        {
+                            Rect itemRect = GUILayoutUtility.GetRect(boxWidth - 20f, 36f, GUILayout.ExpandWidth(true), GUILayout.Height(36f));
+                            if (VidaPremiumGUI.DrawSidebarItem(itemRect, items[i], VidaPremiumGUI.GetPremiumTexture("icon-codes.png"), _selectedCategory == i))
+                            {
+                                _selectedCategory = i;
+                            }
+
+                            GUILayout.Space(5f);
+                        }
+
+                        GUILayout.FlexibleSpace();
+                        if (VidaPremiumGUI.DrawHeaderAction("Reload", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), boxWidth - 20f))
+                        {
+                            ReloadData();
+                        }
                     }
 
-                    GUILayout.Space(5f);
-                }
-
-                GUILayout.FlexibleSpace();
-                if (VidaPremiumGUI.DrawHeaderAction("Reload", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), boxWidth - 20f))
-                {
-                    ReloadData();
+                    GUILayout.Space(10f);
                 }
             }
-            GUILayout.EndArea();
-            GUI.EndGroup();
+            EditorGUILayout.EndVertical();
         }
 
         private void DrawCategory(Vector2 window)
