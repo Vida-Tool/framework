@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Plastic.Newtonsoft.Json.Linq;
 using UnityEditor;
@@ -56,25 +57,43 @@ namespace Vida.Framework.Editor
         /// GitHub API’ye basit bir bağlantı testi yapar.
         /// </summary>
         /// <returns>Bağlantı başarılı ise true, değilse false döner.</returns>
-        public static async Task<bool> TryConnectAsync()
+        public static async Task<bool> TryConnectAsync(CancellationToken cancellationToken = default)
         {
             if (_tasking)
                 return false;
 
             _tasking = true;
-            using (UnityWebRequest www = UnityWebRequest.Get(githubRepoURL))
+            try
             {
-                www.SetRequestHeader("Authorization", authToken);
-                www.SetRequestHeader("Accept", acceptToken);
-                www.SendWebRequest();
+                using (UnityWebRequest www = UnityWebRequest.Get(githubRepoURL))
+                {
+                    www.SetRequestHeader("Authorization", authToken);
+                    www.SetRequestHeader("Accept", acceptToken);
+                    UnityWebRequestAsyncOperation requestOperation = www.SendWebRequest();
 
-                while (!www.isDone)
-                    await Task.Delay(10);
+                    while (!requestOperation.isDone)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            www.Abort();
+                            return false;
+                        }
 
-                bool success = www.result == UnityWebRequest.Result.Success;
-                Debug.Log("TryConnectAsync result: " + www.result);
+                        await Task.Delay(10, cancellationToken);
+                    }
+
+                    bool success = www.result == UnityWebRequest.Result.Success;
+                    Debug.Log("TryConnectAsync result: " + www.result);
+                    return success;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+            finally
+            {
                 _tasking = false;
-                return success;
             }
         }
 

@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿using System;
+using UnityEditor;
 using UnityEngine;
 using Vida.Framework.CodeEditor;
 
@@ -19,7 +20,7 @@ namespace Vida.Framework.Editor
 
         public void DrawSidebar(Rect sidebarRect, Texture2D logoTexture)
         {
-            VidaPremiumGUI.DrawFrame(sidebarRect, "frame-sidebar.png");
+            VidaPremiumGUI.DrawSidebarBackground(sidebarRect);
 
             Rect innerRect = VidaPremiumGUI.GetInnerRect(sidebarRect, 12f);
             GUILayout.BeginArea(innerRect);
@@ -59,9 +60,9 @@ namespace Vida.Framework.Editor
             GUILayout.EndArea();
         }
 
-        public void DrawHeader(Rect headerRect)
+        public void DrawHeader(Rect headerRect, Action loginAction)
         {
-            VidaPremiumGUI.DrawFrame(headerRect, "frame-header.png");
+            VidaPremiumGUI.DrawHeaderBackground(headerRect);
 
             Rect innerRect = VidaPremiumGUI.GetInnerRect(headerRect, 12f);
             GUILayout.BeginArea(innerRect);
@@ -94,7 +95,7 @@ namespace Vida.Framework.Editor
 
                     if (DrawConnectionAction())
                     {
-                        HandleConnectionAction();
+                        HandleConnectionAction(loginAction);
                     }
                 }
             }
@@ -173,7 +174,7 @@ namespace Vida.Framework.Editor
             return VidaPremiumGUI.DrawHeaderAction("Login", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 88f, true);
         }
 
-        private void HandleConnectionAction()
+        private void HandleConnectionAction(Action loginAction)
         {
             if (VidaFramework.Connection)
             {
@@ -182,8 +183,8 @@ namespace Vida.Framework.Editor
             }
 
             VidaFramework.Connection = false;
-            VidaFramework.AutoConnect = false;
-            VGitLogin.ShowWindow(null);
+            SetSelected(0);
+            loginAction?.Invoke();
         }
 
         private void Logout()

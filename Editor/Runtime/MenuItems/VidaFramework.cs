@@ -21,21 +21,8 @@ namespace Vida.Framework.Editor
             set => SessionState.SetBool(AutoConnectSessionKey, value);
         }
 
-        private static VGitLogin _activeLoginWindow
-        {
-            get
-            {
-                if (EditorWindow.HasOpenInstances<VGitLogin>())
-                {
-                    return GetWindow<VGitLogin>();
-                }
-
-                return null;
-            }
-        }
-
         [MenuItem("Vida/Menu")]
-        internal static async void OpenWindow()
+        internal static void OpenWindow()
         {
             var window = GetWindow<VidaFramework>();
             Rect rect = window.position;
@@ -52,26 +39,17 @@ namespace Vida.Framework.Editor
             window.titleContent = new GUIContent("Vida Framework","Framework menu");
             
             VDefineSymbolInjector.Inject();
-
-            if (!Connection)
-            {
-                bool result = await GithubConnector.TryConnectAsync();
-                Connection = result;
-            }
+            window.StartAutoConnect();
         }
-
 
         private void OnDestroy()
         {
-            if (_activeLoginWindow != null)
-            {
-                _activeLoginWindow.Close();
-            }
+            _home?.Dispose();
         }
 
 
         private MainToolbar _mainToolbar = new MainToolbar();
-        private HomeWindow _home = new HomeWindow();
+        private HomeWindow _home;
         private StarterWindow _starterWindow = new StarterWindow();
         private SdkWindow _sdkWindow = new SdkWindow();
         private TemplatesWindow _templates = new TemplatesWindow();
@@ -82,6 +60,7 @@ namespace Vida.Framework.Editor
 
         private void OnEnable()
         {
+            _home = new HomeWindow(Repaint);
             LoadTextures();
         }
 
@@ -96,14 +75,14 @@ namespace Vida.Framework.Editor
             Rect windowRect = new Rect(0f, 0f, position.width, position.height);
             VidaPremiumGUI.DrawWindowBackground(windowRect);
 
-            float outerPadding = VidaPremiumGUI.OuterPadding;
-            Rect sidebarRect = new Rect(outerPadding, outerPadding, VidaPremiumGUI.SidebarWidth, position.height - outerPadding * 2f);
-            Rect headerRect = new Rect(sidebarRect.xMax + outerPadding, outerPadding, position.width - sidebarRect.width - outerPadding * 3f, VidaPremiumGUI.HeaderHeight);
-            Rect contentRect = new Rect(headerRect.x, headerRect.yMax + outerPadding, headerRect.width, position.height - headerRect.yMax - outerPadding * 2f);
+            float panelGap = VidaPremiumGUI.PanelGap;
+            Rect sidebarRect = new Rect(0f, 0f, VidaPremiumGUI.SidebarWidth, position.height);
+            Rect headerRect = new Rect(sidebarRect.xMax + panelGap, 0f, position.width - sidebarRect.width - panelGap, VidaPremiumGUI.HeaderHeight);
+            Rect contentRect = new Rect(headerRect.x, headerRect.yMax + panelGap, headerRect.width, position.height - headerRect.yMax - panelGap);
 
             _mainToolbar.DrawSidebar(sidebarRect, _backgroundTexture);
-            _mainToolbar.DrawHeader(headerRect);
-            VidaPremiumGUI.DrawFrame(contentRect, "frame-panel.png");
+            _mainToolbar.DrawHeader(headerRect, _home.StartLogin);
+            VidaPremiumGUI.DrawContentBackground(contentRect);
 
             Rect innerContentRect = VidaPremiumGUI.GetInnerRect(contentRect);
             GUILayout.BeginArea(innerContentRect);
@@ -118,20 +97,21 @@ namespace Vida.Framework.Editor
             _backgroundTexture = TextureLoader.GetTexture("vida-games-icon.png");
         }
 
+        private void StartAutoConnect()
+        {
+            if (_home == null)
+            {
+                _home = new HomeWindow(Repaint);
+            }
+
+            _home.StartAutoConnect();
+        }
+
         private void DrawSelectedContent(Vector2 contentSize)
         {
             if (!Connection)
             {
                 _home.Draw();
-                return;
-            }
-
-            if (_activeLoginWindow != null)
-            {
-                VidaPremiumGUI.DrawCenteredState(
-                    "Login Window Active",
-                    "GitHub login window is open. Complete or close it to continue.",
-                    VidaPremiumGUI.GetPremiumTexture("icon-login.png"));
                 return;
             }
 

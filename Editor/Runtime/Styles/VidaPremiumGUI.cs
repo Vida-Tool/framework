@@ -7,7 +7,7 @@ namespace Vida.Framework.Editor
 {
     public static class VidaPremiumGUI
     {
-        public const float OuterPadding = 12f;
+        public const float PanelGap = 12f;
         public const float SidebarWidth = 174f;
         public const float HeaderHeight = 66f;
         public const float ContentPadding = 14f;
@@ -18,6 +18,8 @@ namespace Vida.Framework.Editor
         private const float PackageHeaderHeight = 34f;
 
         private static readonly Color WindowBackgroundColor = new Color32(0x12, 0x16, 0x1E, 0xFF);
+        private static readonly Color SidebarBackgroundColor = new Color32(0x0F, 0x14, 0x1C, 0xFF);
+        private static readonly Color HeaderBackgroundColor = new Color32(0x1A, 0x21, 0x2C, 0xFF);
         private static readonly Color ContentBackgroundFallbackColor = new Color32(0x1D, 0x24, 0x30, 0xF2);
         private static readonly Color HeaderTextColor = new Color32(0xF0, 0xF5, 0xFF, 0xFF);
         private static readonly Color BodyTextColor = new Color32(0xD7, 0xE0, 0xEC, 0xFF);
@@ -47,6 +49,7 @@ namespace Vida.Framework.Editor
         private static GUIStyle _segmentLabelStyle;
         private static GUIStyle _segmentSelectedLabelStyle;
         private static GUIStyle _searchFieldStyle;
+        private static GUIStyle _inlineMessageStyle;
 
         public static void DrawWindowBackground(Rect rect)
         {
@@ -71,6 +74,21 @@ namespace Vida.Framework.Editor
             }
 
             GUI.color = previousColor;
+        }
+
+        public static void DrawSidebarBackground(Rect rect)
+        {
+            EditorGUI.DrawRect(rect, SidebarBackgroundColor);
+        }
+
+        public static void DrawHeaderBackground(Rect rect)
+        {
+            EditorGUI.DrawRect(rect, HeaderBackgroundColor);
+        }
+
+        public static void DrawContentBackground(Rect rect)
+        {
+            EditorGUI.DrawRect(rect, ContentBackgroundFallbackColor);
         }
 
         public static void DrawFrame(Rect rect, string frameName)
@@ -198,6 +216,23 @@ namespace Vida.Framework.Editor
 
             Rect textRect = new Rect(rect.x + 12f, rect.y + 6f, rect.width - 24f, 20f);
             return GUI.TextField(textRect, searchText, SearchFieldStyle);
+        }
+
+        public static string DrawPasswordField(string text, float width)
+        {
+            Rect rect = GUILayoutUtility.GetRect(width, ActionButtonHeight, GUILayout.Width(width), GUILayout.Height(ActionButtonHeight));
+            DrawFrame(rect, "frame-search.png");
+
+            Rect textRect = new Rect(rect.x + 12f, rect.y + 6f, rect.width - 24f, 20f);
+            return GUI.PasswordField(textRect, text, '\u2022', SearchFieldStyle);
+        }
+
+        public static void DrawInlineMessage(string message, bool hasError)
+        {
+            Color previousColor = GUI.color;
+            GUI.color = hasError ? DangerColor : MutedTextColor;
+            GUILayout.Label(message, InlineMessageStyle, GUILayout.Height(28f));
+            GUI.color = previousColor;
         }
 
         public static void DrawConnectionStatus(bool isConnected, bool isRefreshing)
@@ -720,6 +755,22 @@ namespace Vida.Framework.Editor
                 }
 
                 return _searchFieldStyle;
+            }
+        }
+
+        private static GUIStyle InlineMessageStyle
+        {
+            get
+            {
+                if (_inlineMessageStyle == null)
+                {
+                    _inlineMessageStyle = new GUIStyle(EditorStyles.wordWrappedMiniLabel)
+                    {
+                        normal = { textColor = Color.white }
+                    };
+                }
+
+                return _inlineMessageStyle;
             }
         }
     }
