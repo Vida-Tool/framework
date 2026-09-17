@@ -67,7 +67,7 @@ namespace Vida.Framework.Editor
             }
         }
 
-        public static async Task DownloadAndImportAsync(StarterPackageInfo package, IProgress<float> progress = null)
+        public static async Task DownloadAndImportAsync(StarterPackageInfo package, IProgress<float> progress = null, bool interactive = true)
         {
             if (package == null)
             {
@@ -83,7 +83,7 @@ namespace Vida.Framework.Editor
                 throw new InvalidOperationException("The published package version is no longer available.");
             }
 
-            await DownloadAndImportAsync(package, version, session, progress);
+            await DownloadAndImportAsync(package, version, session, progress, interactive);
         }
 
         public static Task<PackageDetails> GetPackageDetailsAsync(StarterPackageInfo package)
@@ -168,7 +168,8 @@ namespace Vida.Framework.Editor
             StarterPackageInfo package,
             PackageVersionInfo version,
             FrameworkSession.SessionSnapshot session,
-            IProgress<float> progress)
+            IProgress<float> progress,
+            bool interactive = true)
         {
             ValidateArtifact(version.Filename, version.Size, version.Sha256);
             FrameworkSession.EnsureCurrent(session);
@@ -250,7 +251,8 @@ namespace Vida.Framework.Editor
                 }
 
                 progress?.Report(1f);
-                ImportPackageIfCurrent(session, packagePath);
+                await ImportPackageIfCurrentAsync(session, packagePath, interactive);
+                if (!interactive) DeleteDownloadDirectory(directory);
             }
             catch
             {
@@ -272,12 +274,51 @@ namespace Vida.Framework.Editor
             FrameworkSession.EnsureCurrent(session);
         }
 
-        private static void ImportPackageIfCurrent(
+        private static async Task ImportPackageIfCurrentAsync(
             FrameworkSession.SessionSnapshot session,
-            string packagePath)
+            string packagePath,
+            bool interactive)
         {
             FrameworkSession.EnsureCurrent(session);
-            AssetDatabase.ImportPackage(packagePath, true);
+            if (interactive)
+            {
+                AssetDatabase.ImportPackage(packagePath, true);
+                return;
+            }
+
+            var completion = new TaskCompletionSource<bool>();
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Unity is busy. Try the Framework update again when it is idle.");
+            string expectedName = Path.GetFileNameWithoutExtension(packagePath);
+            string expectedFilename = Path.GetFileName(packagePath);
+            void Completed(string name)
+            {
+                if (name == expectedName || name == expectedFilename) completion.TrySetResult(true);
+            }
+            void Failed(string name, string error)
+            {
+                if (name == expectedName || name == expectedFilename)
+                    completion.TrySetException(new InvalidOperationException(error));
+            }
+            void Cancelled(string name)
+            {
+                if (name == expectedName || name == expectedFilename) completion.TrySetCanceled();
+            }
+            AssetDatabase.importPackageCompleted += Completed;
+            AssetDatabase.importPackageFailed += Failed;
+            AssetDatabase.importPackageCancelled += Cancelled;
+            try
+            {
+                FrameworkSession.EnsureCurrent(session);
+                AssetDatabase.ImportPackage(packagePath, false);
+                await completion.Task;
+            }
+            finally
+            {
+                AssetDatabase.importPackageCompleted -= Completed;
+                AssetDatabase.importPackageFailed -= Failed;
+                AssetDatabase.importPackageCancelled -= Cancelled;
+            }
         }
 
         private static void DeleteDownloadDirectory(string directory)

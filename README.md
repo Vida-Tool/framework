@@ -49,3 +49,10 @@ spacious package rows. Home, Starter, SDK, Codes, and Packages share the same vi
 language; the empty Templates and Settings tabs are hidden. Package details, sign-in,
 code snippets, and download progress use the same styling. Narrow windows keep the
 compact icon sidebar and move package categories into row subtitles.
+
+Use **Güncellemeleri kontrol et** above the connection status to update a bootstrap
+installation directly from the signed-in Framework Store catalog. Only newer
+versions are installed, after size and SHA-256 verification, without an import
+selection dialog. Unity must be idle and satisfy the package's minimum version.
+Git/UPM installations remain managed through Package Manager to avoid creating a
+second Framework installation in Assets.

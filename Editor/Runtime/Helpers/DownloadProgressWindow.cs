@@ -43,11 +43,18 @@ namespace Vida.Framework.Editor
         {
             _lastUpdateTime = EditorApplication.timeSinceStartup;
             EditorApplication.update += OnEditorUpdate;
+            AssemblyReloadEvents.beforeAssemblyReload += CloseBeforeReload;
         }
 
         private void OnDisable()
         {
             EditorApplication.update -= OnEditorUpdate;
+            AssemblyReloadEvents.beforeAssemblyReload -= CloseBeforeReload;
+        }
+
+        private void CloseBeforeReload()
+        {
+            Close();
         }
 
         private void OnEditorUpdate()

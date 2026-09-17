@@ -42,6 +42,12 @@ namespace Vida.Framework.Editor
                 }
 
                 GUILayout.FlexibleSpace();
+                using (new EditorGUI.DisabledScope(FrameworkUpdater.IsBusy || !VidaFramework.Connection))
+                {
+                    if (VidaPremiumGUI.DrawUpdateAction(innerRect.width, isCompact, FrameworkUpdater.IsBusy))
+                        _ = FrameworkUpdater.CheckAsync();
+                }
+                GUILayout.Space(8f);
                 using (new GUILayout.HorizontalScope())
                 {
                     GUILayout.FlexibleSpace();

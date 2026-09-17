@@ -272,6 +272,22 @@ namespace Vida.Framework.Editor
             return clicked;
         }
 
+        public static bool DrawUpdateAction(float width, bool compact, bool busy)
+        {
+            Rect rect = GUILayoutUtility.GetRect(width, 44f, GUILayout.Width(width), GUILayout.Height(44f));
+            DrawFrame(rect, "frame-button-secondary.png");
+            string title = busy ? "Kontrol ediliyor…" : "Güncellemeleri kontrol et";
+            string tooltip = VidaFramework.Connection ? title : "Güncellemeleri kontrol etmek için giriş yap";
+            bool clicked = GUI.Button(rect, new GUIContent(string.Empty, tooltip), GUIStyle.none);
+            Texture2D icon = GetPremiumTexture("icon-reload.png");
+            Rect iconRect = new Rect(compact ? rect.center.x - 10f : rect.x + 10f, rect.center.y - 10f, 20f, 20f);
+            if (icon != null) GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
+            if (!compact)
+                GUI.Label(new Rect(rect.x + 36f, rect.y + 6f, rect.width - 40f, 32f),
+                    busy ? "Kontrol ediliyor…" : "Güncellemeleri\nkontrol et", ActionLabelStyle);
+            return clicked;
+        }
+
         public static string DrawSearchField(string searchText, float width)
         {
             Rect rect = GUILayoutUtility.GetRect(width, ActionButtonHeight, GUILayout.Width(width), GUILayout.Height(ActionButtonHeight));
