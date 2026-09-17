@@ -17,6 +17,7 @@ namespace Vida.Framework.Editor
         private string _errorMessage;
         private Vector2 _scroll;
         private List<StarterPackageInfo> _packages;
+        private readonly PackageListView _packageList = new PackageListView();
 
         public void Draw(Vector2 windowSize)
         {
@@ -62,10 +63,7 @@ namespace Vida.Framework.Editor
                 _scroll = GUILayout.BeginScrollView(_scroll);
                 foreach (StarterPackageInfo package in _packages)
                 {
-                    if (VidaPremiumGUI.DrawPackageRow(package.GetDisplayInfo(), windowSize.x, _isLoading))
-                    {
-                        PackageDetailsWindow.Open(package);
-                    }
+                    _packageList.DrawPackage(package, windowSize.x, _isLoading);
 
                     GUILayout.Space(6f);
                 }
@@ -113,34 +111,6 @@ namespace Vida.Framework.Editor
             }
         }
 
-        private async Task DownloadPackageAsync(StarterPackageInfo package)
-        {
-            if (_isLoading)
-            {
-                return;
-            }
-
-            _isLoading = true;
-            DownloadProgressWindow.Controller progressWindow = null;
-            try
-            {
-                progressWindow = DownloadProgressWindow.Show("İndirme", package.Name + " indiriliyor...");
-                progressWindow.SetIndeterminate();
-                await FrameworkStoreClient.DownloadAndImportAsync(package, progressWindow);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError("Framework paketi indirilemedi: " + exception.Message);
-                EditorUtility.DisplayDialog("İndirme başarısız", exception.Message, "Tamam");
-            }
-            finally
-            {
-                progressWindow?.Close();
-                _isLoading = false;
-                EditorApplication.QueuePlayerLoopUpdate();
-            }
-        }
-
         public static void ResetCachedData()
         {
             _resetRequested = true;
@@ -158,6 +128,7 @@ namespace Vida.Framework.Editor
             _errorMessage = null;
             _scroll = Vector2.zero;
             _packages = null;
+            _packageList.Reset();
         }
     }
 }

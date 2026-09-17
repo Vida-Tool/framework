@@ -19,15 +19,15 @@ namespace Vida.Framework.Editor
 
     public static class StarterPackageInfoExtensions
     {
-        public static void GetColumnWidths(float windowWidth, out float categoryWidth, out float nameWidth, out float versionWidth, out float downloadWidth)
+        public static void GetColumnWidths(float windowWidth, out float categoryWidth, out float nameWidth, out float versionWidth, out float actionWidth)
         {
             float available = Mathf.Max(300f, windowWidth - 24f);
             bool showCategory = ShouldShowCategory(windowWidth);
 
             categoryWidth = showCategory ? Mathf.Clamp(available * 0.21f, 108f, 156f) : 0f;
             versionWidth = Mathf.Clamp(available * 0.14f, 72f, 104f);
-            downloadWidth = Mathf.Clamp(available * 0.16f, 82f, 112f);
-            nameWidth = Mathf.Max(120f, available - categoryWidth - versionWidth - downloadWidth);
+            actionWidth = Mathf.Clamp(available * 0.32f, 196f, 224f);
+            nameWidth = Mathf.Max(120f, available - categoryWidth - versionWidth - actionWidth);
         }
 
         public static bool ShouldShowCategory(float windowWidth)

@@ -20,13 +20,15 @@ namespace Vida.Framework.Editor
         private const int PageSize = 100;
 
         private static CatalogCacheEntry _catalogCache;
+        private static readonly Dictionary<string, PackageDetailsCacheEntry> PackageDetailsCache =
+            new Dictionary<string, PackageDetailsCacheEntry>(StringComparer.Ordinal);
 
         public static async Task<List<StarterPackageInfo>> GetPackagesAsync(string kind, bool forceRefresh = false)
         {
             FrameworkSession.SessionSnapshot session = FrameworkSession.Capture();
             if (forceRefresh)
             {
-                ClearCache();
+                ClearCatalogCache();
             }
 
             CatalogCacheEntry entry = _catalogCache;
@@ -55,6 +57,12 @@ namespace Vida.Framework.Editor
         }
 
         public static void ClearCache()
+        {
+            ClearCatalogCache();
+            PackageDetailsCache.Clear();
+        }
+
+        private static void ClearCatalogCache()
         {
             _catalogCache = null;
         }
@@ -98,6 +106,35 @@ namespace Vida.Framework.Editor
         }
 
         private static async Task<PackageDetails> GetPackageDetailsAsync(
+            StarterPackageInfo package,
+            FrameworkSession.SessionSnapshot session)
+        {
+            if (!PackageDetailsCache.TryGetValue(package.Id, out PackageDetailsCacheEntry entry)
+                || !entry.Matches(session, package))
+            {
+                entry = new PackageDetailsCacheEntry(session, package, LoadPackageDetailsAsync(package, session));
+                PackageDetailsCache[package.Id] = entry;
+            }
+
+            try
+            {
+                PackageDetails details = await entry.Task;
+                FrameworkSession.EnsureCurrent(session);
+                return details;
+            }
+            catch
+            {
+                if (PackageDetailsCache.TryGetValue(package.Id, out PackageDetailsCacheEntry current)
+                    && ReferenceEquals(current, entry))
+                {
+                    PackageDetailsCache.Remove(package.Id);
+                }
+
+                throw;
+            }
+        }
+
+        private static async Task<PackageDetails> LoadPackageDetailsAsync(
             StarterPackageInfo package,
             FrameworkSession.SessionSnapshot session)
         {
@@ -677,6 +714,41 @@ namespace Vida.Framework.Editor
             {
                 return Generation == session.Generation
                        && string.Equals(StudioId, session.StudioId, StringComparison.Ordinal);
+            }
+        }
+
+        private sealed class PackageDetailsCacheEntry
+        {
+            internal PackageDetailsCacheEntry(
+                FrameworkSession.SessionSnapshot session,
+                StarterPackageInfo package,
+                Task<PackageDetails> task)
+            {
+                Generation = session.Generation;
+                StudioId = session.StudioId;
+                PackageId = package.Id;
+                Kind = package.Kind;
+                Version = package.Version;
+                UpdatedAt = package.UpdatedAt;
+                Task = task;
+            }
+
+            internal long Generation { get; }
+            internal string StudioId { get; }
+            internal string PackageId { get; }
+            internal string Kind { get; }
+            internal string Version { get; }
+            internal long UpdatedAt { get; }
+            internal Task<PackageDetails> Task { get; }
+
+            internal bool Matches(FrameworkSession.SessionSnapshot session, StarterPackageInfo package)
+            {
+                return Generation == session.Generation
+                       && string.Equals(StudioId, session.StudioId, StringComparison.Ordinal)
+                       && string.Equals(PackageId, package.Id, StringComparison.Ordinal)
+                       && string.Equals(Kind, package.Kind, StringComparison.Ordinal)
+                       && string.Equals(Version, package.Version, StringComparison.Ordinal)
+                       && UpdatedAt == package.UpdatedAt;
             }
         }
 

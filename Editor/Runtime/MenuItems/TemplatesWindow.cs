@@ -14,10 +14,10 @@ namespace Vida.Framework.Editor
 
         private bool _initialized;
         private bool _isLoading;
-        private bool _isDownloading;
         private string _errorMessage;
         private Vector2 _scroll;
         private List<StarterPackageInfo> _packages;
+        private readonly PackageListView _packageList = new PackageListView();
 
         public void Draw(Vector2 windowSize)
         {
@@ -81,10 +81,7 @@ namespace Vida.Framework.Editor
             _scroll = GUILayout.BeginScrollView(_scroll, false, false);
             foreach (StarterPackageInfo package in filtered)
             {
-                if (VidaPremiumGUI.DrawPackageRow(package.GetDisplayInfo(), windowSize.x, _isDownloading))
-                {
-                    PackageDetailsWindow.Open(package);
-                }
+                _packageList.DrawPackage(package, windowSize.x, _isLoading);
 
                 GUILayout.Space(6f);
             }
@@ -137,34 +134,6 @@ namespace Vida.Framework.Editor
             }
         }
 
-        private async Task DownloadTemplateAsync(StarterPackageInfo package)
-        {
-            if (_isDownloading)
-            {
-                return;
-            }
-
-            _isDownloading = true;
-            DownloadProgressWindow.Controller progressWindow = null;
-            try
-            {
-                progressWindow = DownloadProgressWindow.Show("İndirme", package.Name + " indiriliyor...");
-                progressWindow.SetIndeterminate();
-                await FrameworkStoreClient.DownloadAndImportAsync(package, progressWindow);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError("Template paketi indirilemedi: " + exception.Message);
-                EditorUtility.DisplayDialog("İndirme başarısız", exception.Message, "Tamam");
-            }
-            finally
-            {
-                progressWindow?.Close();
-                _isDownloading = false;
-                EditorApplication.QueuePlayerLoopUpdate();
-            }
-        }
-
         public static void ResetCachedData()
         {
             _resetRequested = true;
@@ -179,10 +148,10 @@ namespace Vida.Framework.Editor
         {
             _initialized = false;
             _isLoading = false;
-            _isDownloading = false;
             _errorMessage = null;
             _scroll = Vector2.zero;
             _packages = null;
+            _packageList.Reset();
         }
     }
 }

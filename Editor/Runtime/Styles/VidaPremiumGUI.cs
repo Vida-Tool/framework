@@ -5,6 +5,13 @@ using UnityEngine;
 
 namespace Vida.Framework.Editor
 {
+    public enum PackageRowAction
+    {
+        None,
+        ToggleDetails,
+        DownloadLatest
+    }
+
     public static class VidaPremiumGUI
     {
         public const float PanelGap = 1f;
@@ -55,6 +62,7 @@ namespace Vida.Framework.Editor
         private static GUIStyle _segmentSelectedLabelStyle;
         private static GUIStyle _searchFieldStyle;
         private static GUIStyle _inlineMessageStyle;
+        private static GUIStyle _infoIconStyle;
 
         public static void DrawWindowBackground(Rect rect)
         {
@@ -360,22 +368,23 @@ namespace Vida.Framework.Editor
             Rect rect = GetFullWidthRect(PackageHeaderHeight, windowWidth);
             DrawFrame(rect, "frame-header.png");
 
-            StarterPackageInfoExtensions.GetColumnWidths(rect.width, out float categoryWidth, out float nameWidth, out float versionWidth, out float downloadWidth);
+            StarterPackageInfoExtensions.GetColumnWidths(rect.width, out float categoryWidth, out float nameWidth, out float versionWidth, out float actionWidth);
             GUI.Label(new Rect(rect.x + 12f, rect.y + 8f, nameWidth, 18f), "PACKAGE", TableHeaderStyle);
             if (categoryWidth > 0f)
             {
                 GUI.Label(new Rect(rect.x + 12f + nameWidth, rect.y + 8f, categoryWidth, 18f), "CATEGORY", TableHeaderStyle);
             }
             GUI.Label(new Rect(rect.x + 12f + nameWidth + categoryWidth, rect.y + 8f, versionWidth, 18f), "VERSION", TableHeaderStyle);
+            GUI.Label(new Rect(rect.xMax - actionWidth - 12f, rect.y + 8f, actionWidth, 18f), "ACTIONS", TableHeaderStyle);
         }
 
-        public static bool DrawPackageRow(PackageDisplayInfo displayInfo, float windowWidth, bool isDisabled)
+        public static PackageRowAction DrawPackageRow(PackageDisplayInfo displayInfo, float windowWidth, bool isDisabled, bool isExpanded)
         {
             Rect rect = GetFullWidthRect(PackageRowHeight, windowWidth);
             bool isHover = !isDisabled && rect.Contains(Event.current.mousePosition);
-            DrawFrame(rect, isHover ? "frame-row-hover.png" : "frame-row.png");
+            DrawFrame(rect, isExpanded ? "frame-panel-selected.png" : isHover ? "frame-row-hover.png" : "frame-row.png");
 
-            StarterPackageInfoExtensions.GetColumnWidths(rect.width, out float categoryWidth, out float nameWidth, out float versionWidth, out float downloadWidth);
+            StarterPackageInfoExtensions.GetColumnWidths(rect.width, out float categoryWidth, out float nameWidth, out float versionWidth, out float actionWidth);
             float x = rect.x + 12f;
             Rect iconRect = new Rect(x, rect.center.y - 20f, 40f, 40f);
             DrawRoundedRect(iconRect, RaisedSurfaceColor);
@@ -394,11 +403,25 @@ namespace Vida.Framework.Editor
             }
             x += categoryWidth;
             GUI.Label(new Rect(x, rect.y + 28f, versionWidth - 8f, 20f), new GUIContent(string.IsNullOrEmpty(displayInfo.Version) ? "—" : displayInfo.Version, displayInfo.Version), RowMutedLabelStyle);
-            Rect buttonRect = new Rect(rect.xMax - downloadWidth - 12f, rect.center.y - 16f, downloadWidth, 32f);
+
+            const float actionGap = 8f;
+            float buttonWidth = (actionWidth - actionGap) * 0.5f;
+            Rect detailsRect = new Rect(rect.xMax - actionWidth - 12f, rect.center.y - 17f, buttonWidth, 34f);
+            Rect downloadRect = new Rect(detailsRect.xMax + actionGap, detailsRect.y, buttonWidth, detailsRect.height);
             using (new EditorGUI.DisabledScope(isDisabled))
             {
-                return DrawInlineActionButton(buttonRect, "Details", null, false);
+                if (DrawPackageActionButton(detailsRect, "Details", null, true, AccentColor))
+                {
+                    return PackageRowAction.ToggleDetails;
+                }
+
+                if (DrawPackageActionButton(downloadRect, "Download", GetPremiumTexture("icon-download.png"), false, SuccessColor))
+                {
+                    return PackageRowAction.DownloadLatest;
+                }
             }
+
+            return PackageRowAction.None;
         }
 
         public static void DrawCenteredState(string title, string subtitle, Texture2D icon = null)
@@ -488,6 +511,33 @@ namespace Vida.Framework.Editor
             _segmentSelectedLabelStyle = null;
             _searchFieldStyle = null;
             _inlineMessageStyle = null;
+            _infoIconStyle = null;
+        }
+
+        private static bool DrawPackageActionButton(Rect rect, string label, Texture2D icon, bool drawInfoIcon, Color background)
+        {
+            Color buttonColor = GUI.enabled ? background : new Color(background.r, background.g, background.b, 0.42f);
+            DrawRoundedRect(rect, buttonColor, 7f);
+            bool isHover = GUI.enabled && rect.Contains(Event.current.mousePosition);
+            bool clicked = GUI.Button(rect, new GUIContent(string.Empty, label), GUIStyle.none);
+            if (isHover)
+            {
+                DrawHoverTint(rect, 0.15f);
+            }
+
+            Rect iconRect = new Rect(rect.x + 9f, rect.y + 7f, 20f, 20f);
+            if (drawInfoIcon)
+            {
+                DrawRoundedRect(new Rect(iconRect.x + 2f, iconRect.y + 2f, 16f, 16f), new Color32(0x32, 0x28, 0x49, 0xC8), 8f);
+                GUI.Label(iconRect, "i", InfoIconStyle);
+            }
+            else if (icon != null)
+            {
+                GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit);
+            }
+
+            GUI.Label(new Rect(rect.x + 33f, rect.y, rect.width - 39f, rect.height), label, ActionPrimaryLabelStyle);
+            return clicked;
         }
 
         private static bool DrawInlineActionButton(Rect rect, string label, Texture2D icon, bool isPrimary)
@@ -771,6 +821,24 @@ namespace Vida.Framework.Editor
                 }
 
                 return _actionPrimaryLabelStyle;
+            }
+        }
+
+        private static GUIStyle InfoIconStyle
+        {
+            get
+            {
+                if (_infoIconStyle == null)
+                {
+                    _infoIconStyle = new GUIStyle(EditorStyles.miniBoldLabel)
+                    {
+                        alignment = TextAnchor.MiddleCenter,
+                        fontSize = 12,
+                        normal = { textColor = HeaderTextColor }
+                    };
+                }
+
+                return _infoIconStyle;
             }
         }
 
