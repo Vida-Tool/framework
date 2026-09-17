@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -8,15 +8,12 @@ namespace Vida.Framework.Editor
 {
     public class HomeWindow
     {
-        private const int MaxLoginAttempts = 10;
-        private const int RetryDelayMs = 500;
-
         private readonly Action _repaint;
         private CancellationTokenSource _loginCancellation;
         private bool _isConnecting;
         private bool _isDisposed;
         private bool _hasLoginError;
-        private string _loginStatus = "Enter your GitHub token to connect.";
+        private string _loginStatus = "Sign in with your Vida account to access Framework packages.";
 
         public HomeWindow(Action repaint)
         {
@@ -34,10 +31,9 @@ namespace Vida.Framework.Editor
                 return;
             }
 
-            VidaPremiumGUI.DrawSectionHeader("Home", "Framework packages, templates and code helpers are ready.");
             VidaPremiumGUI.DrawCenteredState(
                 "Connection Ready",
-                "Starter, SDK and Templates tabs can now be managed from the left menu.",
+                "Browse Starter, SDK, Codes and Packages from the sidebar.",
                 VidaPremiumGUI.GetPremiumTexture("status-connected.png"));
         }
 
@@ -58,40 +54,22 @@ namespace Vida.Framework.Editor
 
                 using (new GUILayout.VerticalScope(GUILayout.Width(formWidth)))
                 {
-                    VidaPremiumGUI.DrawSectionHeader("GitHub Connection", "Connect once to load Vida framework packages.");
-                    using (new EditorGUI.DisabledScope(_isConnecting))
-                    {
-                        ApiKey = VidaPremiumGUI.DrawPasswordField(ApiKey, formWidth);
-                    }
-
-                    GUILayout.Space(8f);
+                    VidaPremiumGUI.DrawSectionHeader("Vida Sign In", "Your browser will open for secure Vida authentication.");
                     VidaPremiumGUI.DrawInlineMessage(_loginStatus, _hasLoginError);
                     GUILayout.Space(10f);
 
                     using (new GUILayout.HorizontalScope())
                     {
-                        string tryLabel = _isConnecting ? "Cancel" : "Try";
-                        Texture2D tryIcon = VidaPremiumGUI.GetPremiumTexture(_isConnecting ? "icon-logout.png" : "icon-reload.png");
-                        using (new EditorGUI.DisabledScope(!_isConnecting && string.IsNullOrWhiteSpace(ApiKey)))
+                        if (_isConnecting)
                         {
-                            if (VidaPremiumGUI.DrawHeaderAction(tryLabel, tryIcon, 160f, false, _isConnecting))
+                            if (VidaPremiumGUI.DrawHeaderAction("Cancel", VidaPremiumGUI.GetPremiumTexture("icon-logout.png"), 160f, false, true))
                             {
-                                if (_isConnecting)
-                                {
-                                    CancelLogin();
-                                }
-                                else
-                                {
-                                    TryConnectOnceAsync(false);
-                                }
+                                CancelLogin();
                             }
                         }
-
-                        GUILayout.Space(8f);
-
-                        using (new EditorGUI.DisabledScope(_isConnecting || string.IsNullOrWhiteSpace(ApiKey)))
+                        else
                         {
-                            if (VidaPremiumGUI.DrawHeaderAction("Login", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 160f, true))
+                            if (VidaPremiumGUI.DrawHeaderAction("Sign In", VidaPremiumGUI.GetPremiumTexture("icon-login.png"), 160f, true))
                             {
                                 StartLogin();
                             }
@@ -106,16 +84,11 @@ namespace Vida.Framework.Editor
         }
 
         /// <summary>
-        /// Tries the saved token once.
+        /// Refreshes the window from the current Unity-session identity.
         /// </summary>
-        public void StartAutoConnect()
+        public void RefreshSession()
         {
-            if (!VidaFramework.AutoConnect || VidaFramework.Connection || _isConnecting || string.IsNullOrWhiteSpace(ApiKey))
-            {
-                return;
-            }
-
-            TryConnectOnceAsync(true);
+            Repaint();
         }
 
         /// <summary>
@@ -125,12 +98,6 @@ namespace Vida.Framework.Editor
         {
             if (VidaFramework.Connection || _isConnecting)
             {
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(ApiKey))
-            {
-                SetLoginStatus("Enter your GitHub token first.", true);
                 return;
             }
 
@@ -144,50 +111,6 @@ namespace Vida.Framework.Editor
             _loginCancellation?.Dispose();
         }
 
-        private async void TryConnectOnceAsync(bool isAutoConnect)
-        {
-            if (!BeginLogin())
-            {
-                return;
-            }
-
-            CancellationToken cancellationToken = _loginCancellation.Token;
-            SetLoginStatus(isAutoConnect ? "Checking saved token..." : "Trying connection...", false);
-
-            try
-            {
-                bool result = await GithubConnector.TryConnectAsync(cancellationToken);
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    SetLoginStatus("Connection canceled.", false);
-                    return;
-                }
-
-                if (result)
-                {
-                    CompleteLogin();
-                    return;
-                }
-
-                string failedStatus = isAutoConnect
-                    ? "Saved token could not connect. Try again when ready."
-                    : "Connection failed. Check the token and try again.";
-                SetLoginStatus(failedStatus, true);
-            }
-            catch (OperationCanceledException)
-            {
-                SetLoginStatus("Connection canceled.", false);
-            }
-            catch (Exception)
-            {
-                SetLoginStatus("Connection error. Check the token and network.", true);
-            }
-            finally
-            {
-                EndLogin();
-            }
-        }
-
         private async void LoginAsync()
         {
             if (!BeginLogin())
@@ -199,39 +122,18 @@ namespace Vida.Framework.Editor
 
             try
             {
-                for (int attempt = 1; attempt <= MaxLoginAttempts; attempt++)
-                {
-                    SetLoginStatus($"Attempt {attempt} of {MaxLoginAttempts}...", false);
-
-                    bool result = await GithubConnector.TryConnectAsync(cancellationToken);
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        SetLoginStatus("Connection canceled.", false);
-                        return;
-                    }
-
-                    if (result)
-                    {
-                        CompleteLogin();
-                        return;
-                    }
-
-                    if (attempt < MaxLoginAttempts)
-                    {
-                        SetLoginStatus($"Attempt {attempt} failed. Retrying...", true);
-                        await Task.Delay(RetryDelayMs, cancellationToken);
-                    }
-                }
-
-                SetLoginStatus($"Connection failed after {MaxLoginAttempts} attempts. Check the token.", true);
+                SetLoginStatus("Waiting for Vida sign-in in your browser...", false);
+                await FrameworkSession.SignInAsync(cancellationToken);
+                CompleteLogin();
             }
             catch (OperationCanceledException)
             {
                 SetLoginStatus("Connection canceled.", false);
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-                SetLoginStatus("Connection error. Check the token and network.", true);
+                Debug.LogWarning("VIDA: Framework sign-in failed. " + exception.Message);
+                SetLoginStatus("Sign-in failed. Check your Vida access and try again.", true);
             }
             finally
             {
@@ -241,7 +143,7 @@ namespace Vida.Framework.Editor
 
         private bool BeginLogin()
         {
-            if (_isDisposed || _isConnecting || string.IsNullOrWhiteSpace(ApiKey))
+            if (_isDisposed || _isConnecting)
             {
                 return false;
             }
@@ -267,7 +169,6 @@ namespace Vida.Framework.Editor
                 return;
             }
 
-            VidaFramework.AutoConnect = false;
             _loginCancellation?.Cancel();
             if (updateStatus)
             {
@@ -277,8 +178,6 @@ namespace Vida.Framework.Editor
 
         private void CompleteLogin()
         {
-            VidaFramework.Connection = true;
-            VidaFramework.AutoConnect = true;
             SetLoginStatus("Connected.", false);
         }
 
@@ -295,12 +194,6 @@ namespace Vida.Framework.Editor
             {
                 _repaint?.Invoke();
             }
-        }
-
-        private string ApiKey
-        {
-            get => GithubConnector.ApiKey;
-            set => GithubConnector.ApiKey = value;
         }
     }
 }

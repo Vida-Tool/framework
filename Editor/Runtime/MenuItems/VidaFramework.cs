@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 namespace Vida.Framework.Editor
 {
     using UnityEngine;
@@ -6,20 +6,7 @@ namespace Vida.Framework.Editor
     
     public class VidaFramework : EditorWindow
     {
-        private const string ConnectionSessionKey = "VidaFramework.ConnectionApproved";
-        private const string AutoConnectSessionKey = "VidaFramework.AutoConnect";
-
-        public static bool Connection
-        {
-            get => SessionState.GetBool(ConnectionSessionKey, false);
-            set => SessionState.SetBool(ConnectionSessionKey, value);
-        }
-
-        public static bool AutoConnect
-        {
-            get => SessionState.GetBool(AutoConnectSessionKey, true);
-            set => SessionState.SetBool(AutoConnectSessionKey, value);
-        }
+        public static bool Connection => FrameworkSession.IsSignedIn;
 
         [MenuItem("Vida/Menu")]
         internal static void OpenWindow()
@@ -39,7 +26,7 @@ namespace Vida.Framework.Editor
             window.titleContent = new GUIContent("Vida Framework","Framework menu");
             
             VDefineSymbolInjector.Inject();
-            window.StartAutoConnect();
+            window.RefreshSession();
         }
 
         private void OnDestroy()
@@ -52,16 +39,25 @@ namespace Vida.Framework.Editor
         private HomeWindow _home;
         private StarterWindow _starterWindow = new StarterWindow();
         private SdkWindow _sdkWindow = new SdkWindow();
-        private TemplatesWindow _templates = new TemplatesWindow();
-        private SettingsWindow _settings = new SettingsWindow();
+        private PackagesWindow _packages = new PackagesWindow();
         private CodesWindow _codesWindow = new CodesWindow();
 
         private Texture2D _backgroundTexture;
+        private long _sessionGeneration;
 
         private void OnEnable()
         {
+            FrameworkSession.SessionChanged -= HandleSessionChanged;
+            FrameworkSession.SessionChanged += HandleSessionChanged;
+            _sessionGeneration = FrameworkSession.Generation;
             _home = new HomeWindow(Repaint);
+            wantsMouseMove = true;
             LoadTextures();
+        }
+
+        private void OnDisable()
+        {
+            FrameworkSession.SessionChanged -= HandleSessionChanged;
         }
 
         private void CreateGUI()
@@ -72,6 +68,8 @@ namespace Vida.Framework.Editor
 
         private void OnGUI()
         {
+            if (Event.current.type == EventType.MouseMove) Repaint();
+            RefreshSessionGeneration();
             Rect windowRect = new Rect(0f, 0f, position.width, position.height);
             VidaPremiumGUI.DrawWindowBackground(windowRect);
 
@@ -115,14 +113,35 @@ namespace Vida.Framework.Editor
             Repaint();
         }
 
-        private void StartAutoConnect()
+        private void RefreshSession()
         {
             if (_home == null)
             {
                 _home = new HomeWindow(Repaint);
             }
 
-            _home.StartAutoConnect();
+            _home.RefreshSession();
+        }
+
+        private void RefreshSessionGeneration()
+        {
+            if (_sessionGeneration != FrameworkSession.Generation)
+            {
+                HandleSessionChanged();
+            }
+        }
+
+        private void HandleSessionChanged()
+        {
+            _sessionGeneration = FrameworkSession.Generation;
+            FrameworkStoreClient.ClearCache();
+            StarterWindow.ResetCachedData();
+            SdkWindow.ResetCachedData();
+            TemplatesWindow.ResetCachedData();
+            PackagesWindow.ResetCachedData();
+            PackageDetailsWindow.CloseForSessionChange();
+            _home?.RefreshSession();
+            Repaint();
         }
 
         private void DrawSelectedContent(Vector2 contentSize)
@@ -138,14 +157,11 @@ namespace Vida.Framework.Editor
                 case "SDK":
                     _sdkWindow.Draw(contentSize);
                     break;
-                case "Templates":
-                    _templates.Draw(contentSize);
-                    break;
-                case "Settings":
-                    _settings.Draw();
-                    break;
                 case "Codes":
                     _codesWindow.Draw(contentSize);
+                    break;
+                case "Packages":
+                    _packages.Draw(contentSize);
                     break;
             }
         }

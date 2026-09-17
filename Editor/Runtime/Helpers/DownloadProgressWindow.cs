@@ -30,10 +30,9 @@ namespace Vida.Framework.Editor
             window.minSize = new Vector2(WindowWidth, WindowHeight);
             window.maxSize = new Vector2(WindowWidth, WindowHeight);
 
-            Resolution resolution = Screen.currentResolution;
-            float x = resolution.width / 2f - WindowWidth / 2f;
-            float y = resolution.height / 2f - WindowHeight / 2f;
-            window.position = new Rect(x, y, WindowWidth, WindowHeight);
+            Rect rect = new Rect(0f, 0f, WindowWidth, WindowHeight);
+            rect.center = EditorGUIUtility.GetMainWindowPosition().center;
+            window.position = rect;
 
             window.ShowUtility();
             window.Focus();
@@ -67,24 +66,26 @@ namespace Vida.Framework.Editor
 
         private void OnGUI()
         {
-            GUILayout.Space(18f);
-
-            using (new GUILayout.HorizontalScope())
+            VidaPremiumGUI.DrawWindowBackground(new Rect(0f, 0f, position.width, position.height));
+            GUILayout.BeginArea(new Rect(24f, 20f, position.width - 48f, position.height - 40f));
+            VidaPremiumGUI.DrawBodyText(_message);
+            GUILayout.FlexibleSpace();
+            Rect track = GUILayoutUtility.GetRect(1f, 6f, GUILayout.ExpandWidth(true));
+            VidaPremiumGUI.DrawRoundedRect(track, new Color32(0x35, 0x32, 0x3A, 0xFF), 3f);
+            Rect fill = track;
+            if (_isIndeterminate)
             {
-                GUILayout.FlexibleSpace();
-                GUILayout.Label(_message, EditorStyles.wordWrappedLabel, GUILayout.Width(WindowWidth - 40f));
-                GUILayout.FlexibleSpace();
+                fill.width *= 0.24f;
+                fill.x += (track.width - fill.width) * (0.5f - 0.5f * Mathf.Cos(_animationValue * Mathf.PI * 2f));
             }
-
-            GUILayout.Space(20f);
-
-            Rect progressRect = GUILayoutUtility.GetRect(WindowWidth - 40f, 24f);
-            progressRect.x += 20f;
-            progressRect.width -= 40f;
-
-            float value = _isIndeterminate ? _animationValue : _progress;
-            string label = _isIndeterminate ? " " : $"%{Mathf.RoundToInt(_progress * 100f)}";
-            EditorGUI.ProgressBar(progressRect, value, label);
+            else
+            {
+                fill.width *= _progress;
+            }
+            VidaPremiumGUI.DrawRoundedRect(fill, new Color32(0xA5, 0x92, 0xDA, 0xFF), 3f);
+            GUILayout.Space(10f);
+            VidaPremiumGUI.DrawBodyText(_isIndeterminate ? "Please wait…" : Mathf.RoundToInt(_progress * 100f) + "%", true);
+            GUILayout.EndArea();
         }
 
         private void SetProgress(float progress)

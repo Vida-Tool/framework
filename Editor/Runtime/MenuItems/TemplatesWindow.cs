@@ -9,35 +9,15 @@ namespace Vida.Framework.Editor
 {
     public class TemplatesWindow
     {
-        private enum TemplateCategory
-        {
-            VidaAssets = 0,
-            ThirdParty = 1
-        }
-
-        private enum TemplateFilter
-        {
-            All = 0,
-            VidaAssets = 1,
-            ThirdParty = 2
-        }
-
-        private const string VidaAssetsFolder = "Vida-Assets";
-        private const string ThirdPartyFolder = "Third-Party-Assets";
-
-
         private static bool _resetRequested;
-
-        private readonly Dictionary<TemplateCategory, List<StarterPackageInfo>> _packages = new();
-        private readonly Dictionary<TemplateCategory, string> _errors = new();
-        private readonly HashSet<TemplateCategory> _isLoading = new();
-        private readonly HashSet<TemplateCategory> _isRefreshing = new();
-        private readonly Dictionary<TemplateFilter, Vector2> _scrollPositions = new();
-
-        private TemplateFilter _activeFilter = TemplateFilter.All;
-        private string _activePackageCategory = "All";
-        private bool _isDownloading;
         private static bool _reloadRequested;
+
+        private bool _initialized;
+        private bool _isLoading;
+        private bool _isDownloading;
+        private string _errorMessage;
+        private Vector2 _scroll;
+        private List<StarterPackageInfo> _packages;
 
         public void Draw(Vector2 windowSize)
         {
@@ -49,369 +29,133 @@ namespace Vida.Framework.Editor
 
             if (_reloadRequested)
             {
+                ClearCachedData();
                 _reloadRequested = false;
-                _ = ReloadPackagesForFilterAsync(_activeFilter);
+                _initialized = true;
+                _ = LoadPackagesAsync(true);
             }
 
-            EnsurePackagesLoadedForFilter(_activeFilter);
-            DrawTemplateHeader(windowSize);
-            DrawTabs(windowSize);
-            DrawPackageCategoryFilters(windowSize);
+            if (!_initialized && !_isLoading)
+            {
+                _initialized = true;
+                _ = LoadPackagesAsync(false);
+            }
+
+            DrawHeader(windowSize);
             GUILayout.Space(10f);
-            DrawTable(windowSize);
+            VidaPremiumGUI.DrawPackageTableHeader(windowSize.x);
+            GUILayout.Space(6f);
+
+            if (_isLoading)
+            {
+                VidaPremiumGUI.DrawCenteredState(
+                    "Paketler yükleniyor...",
+                    "Yayınlanmış template paketleri hazırlanıyor.",
+                    VidaPremiumGUI.GetPremiumTexture("status-refreshing.png"));
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                if (VidaPremiumGUI.DrawRetryState("Paket listesi alınamadı.", _errorMessage))
+                {
+                    _ = LoadPackagesAsync(true);
+                }
+
+                return;
+            }
+
+            string search = MainToolbar.search?.Trim();
+            List<StarterPackageInfo> filtered = _packages?
+                .Where(package => package.MatchesSearch(search))
+                .ToList();
+            if (filtered == null || filtered.Count == 0)
+            {
+                VidaPremiumGUI.DrawCenteredState(
+                    "Gösterilecek template paketi bulunamadı.",
+                    "Arama kriterini değiştir veya kataloğu yenile.",
+                    VidaPremiumGUI.GetPremiumTexture("icon-templates.png"));
+                return;
+            }
+
+            _scroll = GUILayout.BeginScrollView(_scroll, false, false);
+            foreach (StarterPackageInfo package in filtered)
+            {
+                if (VidaPremiumGUI.DrawPackageRow(package.GetDisplayInfo(), windowSize.x, _isDownloading))
+                {
+                    PackageDetailsWindow.Open(package);
+                }
+
+                GUILayout.Space(6f);
+            }
+
+            GUILayout.EndScrollView();
         }
 
-        private void DrawTemplateHeader(Vector2 windowSize)
+        private static void DrawHeader(Vector2 windowSize)
         {
             using (new GUILayout.HorizontalScope())
             {
                 using (new GUILayout.VerticalScope())
                 {
-                    VidaPremiumGUI.DrawHeaderInfo("Templates", "Vida assets and third-party templates ready for import.");
+                    VidaPremiumGUI.DrawHeaderInfo("Templates", "Published template packages from the Vida Framework catalog.");
                 }
 
                 GUILayout.FlexibleSpace();
                 GUILayout.Space(12f);
-
-                using (new GUILayout.VerticalScope(GUILayout.Width(Mathf.Min(280f, Mathf.Max(180f, windowSize.x * 0.34f)))))
+                float width = Mathf.Min(280f, Mathf.Max(180f, windowSize.x * 0.34f));
+                using (new GUILayout.VerticalScope(GUILayout.Width(width)))
                 {
                     GUILayout.Space(2f);
-                    MainToolbar.search = VidaPremiumGUI.DrawSearchField(MainToolbar.search, Mathf.Min(280f, Mathf.Max(180f, windowSize.x * 0.34f)));
+                    MainToolbar.search = VidaPremiumGUI.DrawSearchField(MainToolbar.search, width);
                 }
-            }
-
-            GUILayout.Space(10f);
-        }
-
-        private void DrawTabs(Vector2 windowSize)
-        {
-            string[] tabs = { "All", "Vida", "Third-party" };
-            GUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            int selected = VidaPremiumGUI.DrawSegmentedControl(tabs, (int)_activeFilter, Mathf.Min(windowSize.x - 40f, 360f));
-            if (selected != (int)_activeFilter)
-            {
-                _activeFilter = (TemplateFilter)selected;
-                _activePackageCategory = "All";
-            }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-        }
-
-        private void DrawTable(Vector2 windowSize)
-        {
-            GUILayout.BeginVertical();
-            VidaPremiumGUI.DrawPackageTableHeader(windowSize.x);
-            GUILayout.Space(6f);
-
-            if (IsLoadingForFilter(_activeFilter))
-            {
-                VidaPremiumGUI.DrawCenteredState(
-                    "Paketler yükleniyor...",
-                    "Seçili filtreye göre package listesi hazırlanıyor.",
-                    VidaPremiumGUI.GetPremiumTexture("status-refreshing.png"));
-            }
-            else if (TryGetErrorForFilter(_activeFilter, out string error) && !string.IsNullOrEmpty(error))
-            {
-                if (VidaPremiumGUI.DrawRetryState("Paket listesi alınamadı.", error))
-                {
-                    _ = ReloadPackagesForFilterAsync(_activeFilter);
-                }
-            }
-            else if (TryGetPackagesForFilter(_activeFilter, out List<StarterPackageInfo> packages) && packages.Count > 0)
-            {
-                string searchText = MainToolbar.search?.Trim();
-                IEnumerable<StarterPackageInfo> filteredPackages = string.IsNullOrEmpty(searchText)
-                    ? packages
-                    : packages.Where(p => p.MatchesSearch(searchText));
-
-                if (!string.Equals(_activePackageCategory, "All", StringComparison.OrdinalIgnoreCase))
-                {
-                    filteredPackages = filteredPackages.Where(p =>
-                        string.Equals(p.GetDisplayInfo().Category, _activePackageCategory, StringComparison.OrdinalIgnoreCase));
-                }
-
-                List<StarterPackageInfo> filteredList = filteredPackages.ToList();
-
-                if (filteredList.Count == 0)
-                {
-                    VidaPremiumGUI.DrawCenteredState(
-                        "Arama kriterine uygun paket bulunamadı.",
-                        "Search veya kategori filtresini değiştirerek tekrar deneyebilirsin.",
-                        VidaPremiumGUI.GetPremiumTexture("icon-templates.png"));
-                    GUILayout.EndVertical();
-                    return;
-                }
-
-                TemplateFilter filterKey = _activeFilter;
-                Vector2 scroll = _scrollPositions.TryGetValue(filterKey, out Vector2 existing) ? existing : Vector2.zero;
-                scroll = GUILayout.BeginScrollView(scroll, false, false);
-                foreach (StarterPackageInfo package in filteredList)
-                {
-                    PackageDisplayInfo displayInfo = package.GetDisplayInfo();
-                    if (VidaPremiumGUI.DrawPackageRow(displayInfo, windowSize.x, _isDownloading))
-                    {
-                        DownloadTemplate(package);
-                    }
-                    GUILayout.Space(6f);
-                }
-                GUILayout.EndScrollView();
-                _scrollPositions[filterKey] = scroll;
-            }
-            else
-            {
-                VidaPremiumGUI.DrawCenteredState(
-                    "Gösterilecek paket bulunamadı.",
-                    "Seçili kaynakta import edilebilir template paketi bulunamadı.",
-                    VidaPremiumGUI.GetPremiumTexture("icon-templates.png"));
-            }
-
-            GUILayout.EndVertical();
-        }
-
-        private void EnsurePackagesLoadedForFilter(TemplateFilter filter)
-        {
-            switch (filter)
-            {
-                case TemplateFilter.VidaAssets:
-                    EnsurePackagesLoaded(TemplateCategory.VidaAssets);
-                    break;
-                case TemplateFilter.ThirdParty:
-                    EnsurePackagesLoaded(TemplateCategory.ThirdParty);
-                    break;
-                default:
-                    EnsurePackagesLoaded(TemplateCategory.VidaAssets);
-                    EnsurePackagesLoaded(TemplateCategory.ThirdParty);
-                    break;
             }
         }
 
-        private void EnsurePackagesLoaded(TemplateCategory category)
+        private async Task LoadPackagesAsync(bool forceRefresh)
         {
-            if (_packages.ContainsKey(category) || _isLoading.Contains(category))
+            if (_isLoading)
             {
                 return;
             }
 
-            _ = LoadPackagesAsync(category, false);
-        }
-
-        private async Task LoadPackagesAsync(TemplateCategory category, bool force)
-        {
-            if (_isLoading.Contains(category))
-            {
-                return;
-            }
-
-            if (force)
-            {
-                _packages.Remove(category);
-            }
-
-            _isLoading.Add(category);
-            _errors.Remove(category);
-            bool shouldRefreshAfterLoad = !force && GithubConnector.HasPersistentUnityPackageCache(GetDirectory(category));
-            bool refreshAfterLoad = false;
-
+            _isLoading = true;
+            _errorMessage = null;
             try
             {
-                string directory = GetDirectory(category);
-                List<StarterPackageInfo> packages = await GithubConnector.GetUnityPackagesAsync(directory, force);
-                SortPackages(packages);
-                _packages[category] = packages;
-                refreshAfterLoad = shouldRefreshAfterLoad;
+                _packages = await FrameworkStoreClient.GetPackagesAsync("template", forceRefresh);
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                Debug.LogError($"Paketler yüklenirken hata oluştu: {ex.Message}");
-                _errors[category] = "Paket listesi alınamadı.";
+                _errorMessage = exception.Message;
+                Debug.LogError("Template paketleri alınırken hata: " + exception.Message);
             }
             finally
             {
-                _isLoading.Remove(category);
-                EditorApplication.QueuePlayerLoopUpdate();
-            }
-
-            if (refreshAfterLoad)
-            {
-                _ = RefreshPackagesAsync(category);
-            }
-        }
-
-        private async Task RefreshPackagesAsync(TemplateCategory category)
-        {
-            if (_isRefreshing.Contains(category) || _isLoading.Contains(category))
-            {
-                return;
-            }
-
-            _isRefreshing.Add(category);
-            try
-            {
-                List<StarterPackageInfo> packages = await GithubConnector.GetUnityPackagesAsync(GetDirectory(category), true);
-                SortPackages(packages);
-                _packages[category] = packages;
-                _errors.Remove(category);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"Template paket cache yenilemesi başarısız: {ex.Message}");
-            }
-            finally
-            {
-                _isRefreshing.Remove(category);
+                _isLoading = false;
                 EditorApplication.QueuePlayerLoopUpdate();
             }
         }
 
-        private bool IsLoadingForFilter(TemplateFilter filter)
+        private async Task DownloadTemplateAsync(StarterPackageInfo package)
         {
-            return filter switch
-            {
-                TemplateFilter.VidaAssets => _isLoading.Contains(TemplateCategory.VidaAssets),
-                TemplateFilter.ThirdParty => _isLoading.Contains(TemplateCategory.ThirdParty),
-                _ => _isLoading.Contains(TemplateCategory.VidaAssets) || _isLoading.Contains(TemplateCategory.ThirdParty)
-            };
-        }
-
-        private bool TryGetErrorForFilter(TemplateFilter filter, out string error)
-        {
-            error = null;
-            return filter switch
-            {
-                TemplateFilter.VidaAssets => _errors.TryGetValue(TemplateCategory.VidaAssets, out error),
-                TemplateFilter.ThirdParty => _errors.TryGetValue(TemplateCategory.ThirdParty, out error),
-                _ => _errors.TryGetValue(TemplateCategory.VidaAssets, out error)
-                     || _errors.TryGetValue(TemplateCategory.ThirdParty, out error)
-            };
-        }
-
-        private bool TryGetPackagesForFilter(TemplateFilter filter, out List<StarterPackageInfo> packages)
-        {
-            packages = null;
-            return filter switch
-            {
-                TemplateFilter.VidaAssets => _packages.TryGetValue(TemplateCategory.VidaAssets, out packages),
-                TemplateFilter.ThirdParty => _packages.TryGetValue(TemplateCategory.ThirdParty, out packages),
-                _ => TryGetCombinedPackages(out packages)
-            };
-        }
-
-        private bool TryGetCombinedPackages(out List<StarterPackageInfo> packages)
-        {
-            packages = new List<StarterPackageInfo>();
-            if (_packages.TryGetValue(TemplateCategory.VidaAssets, out List<StarterPackageInfo> vidaPackages))
-            {
-                packages.AddRange(vidaPackages);
-            }
-
-            if (_packages.TryGetValue(TemplateCategory.ThirdParty, out List<StarterPackageInfo> thirdPartyPackages))
-            {
-                packages.AddRange(thirdPartyPackages);
-            }
-
-            if (packages.Count == 0)
-            {
-                packages = null;
-                return false;
-            }
-
-            return true;
-        }
-
-        private async Task ReloadPackagesForFilterAsync(TemplateFilter filter)
-        {
-            switch (filter)
-            {
-                case TemplateFilter.VidaAssets:
-                    await LoadPackagesAsync(TemplateCategory.VidaAssets, true);
-                    break;
-                case TemplateFilter.ThirdParty:
-                    await LoadPackagesAsync(TemplateCategory.ThirdParty, true);
-                    break;
-                default:
-                    Task vidaAssetsTask = LoadPackagesAsync(TemplateCategory.VidaAssets, true);
-                    Task thirdPartyTask = LoadPackagesAsync(TemplateCategory.ThirdParty, true);
-                    await Task.WhenAll(vidaAssetsTask, thirdPartyTask);
-                    break;
-            }
-        }
-
-        private void DrawPackageCategoryFilters(Vector2 windowSize)
-        {
-            if (!TryGetPackagesForFilter(_activeFilter, out List<StarterPackageInfo> packages) || packages.Count == 0)
-            {
-                return;
-            }
-
-            List<string> packageCategories = packages
-                .Select(p => p.GetDisplayInfo().Category)
-                .Where(category => !string.IsNullOrEmpty(category))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(category => IsUncategorized(category) ? 1 : 0)
-                .ThenBy(category => category, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            DrawCategoryFilters(windowSize, packageCategories);
-        }
-
-        private void DrawCategoryFilters(Vector2 windowSize, List<string> categories)
-        {
-            if (categories == null)
-            {
-                return;
-            }
-
-            List<string> options = new List<string> { "All" };
-            options.AddRange(categories);
-
-            if (!options.Contains(_activePackageCategory, StringComparer.OrdinalIgnoreCase))
-            {
-                _activePackageCategory = "All";
-            }
-
-            int selectedIndex = options.FindIndex(option =>
-                string.Equals(option, _activePackageCategory, StringComparison.OrdinalIgnoreCase));
-
-            GUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            int nextIndex = VidaPremiumGUI.DrawSegmentedControl(options.ToArray(), selectedIndex, Mathf.Min(windowSize.x - 40f, 520f));
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
-
-            if (nextIndex != selectedIndex && nextIndex >= 0 && nextIndex < options.Count)
-            {
-                _activePackageCategory = options[nextIndex];
-            }
-
-            GUILayout.Space(6f);
-        }
-
-        private static bool IsUncategorized(string category)
-        {
-            return string.Equals(category, "uncategorized", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private async void DownloadTemplate(StarterPackageInfo package)
-        {
-            if (_isDownloading || package == null)
+            if (_isDownloading)
             {
                 return;
             }
 
             _isDownloading = true;
             DownloadProgressWindow.Controller progressWindow = null;
-
             try
             {
-                progressWindow = DownloadProgressWindow.Show("İndirme", $"{package.Name} indiriliyor...");
+                progressWindow = DownloadProgressWindow.Show("İndirme", package.Name + " indiriliyor...");
                 progressWindow.SetIndeterminate();
-
-                bool result = await GithubConnector.DownloadStarterAsync(package.ApiUrl, progressWindow);
-                if (!result)
-                {
-                    EditorUtility.DisplayDialog("İndirme başarısız", $"{package.Name} indirilemedi.", "Tamam");
-                }
+                await FrameworkStoreClient.DownloadAndImportAsync(package, progressWindow);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("Template paketi indirilemedi: " + exception.Message);
+                EditorUtility.DisplayDialog("İndirme başarısız", exception.Message, "Tamam");
             }
             finally
             {
@@ -419,16 +163,6 @@ namespace Vida.Framework.Editor
                 _isDownloading = false;
                 EditorApplication.QueuePlayerLoopUpdate();
             }
-        }
-
-        private void ClearCachedData()
-        {
-            _packages.Clear();
-            _errors.Clear();
-            _isLoading.Clear();
-            _isRefreshing.Clear();
-            _scrollPositions.Clear();
-            _isDownloading = false;
         }
 
         public static void ResetCachedData()
@@ -441,25 +175,14 @@ namespace Vida.Framework.Editor
             _reloadRequested = true;
         }
 
-        private static void SortPackages(List<StarterPackageInfo> packages)
+        private void ClearCachedData()
         {
-            packages.Sort((left, right) =>
-            {
-                PackageDisplayInfo leftInfo = left.GetDisplayInfo();
-                PackageDisplayInfo rightInfo = right.GetDisplayInfo();
-                int categoryResult = string.Compare(leftInfo.Category, rightInfo.Category, StringComparison.OrdinalIgnoreCase);
-                if (categoryResult != 0)
-                {
-                    return categoryResult;
-                }
-
-                return string.Compare(leftInfo.Name, rightInfo.Name, StringComparison.OrdinalIgnoreCase);
-            });
-        }
-
-        private static string GetDirectory(TemplateCategory category)
-        {
-            return category == TemplateCategory.VidaAssets ? VidaAssetsFolder : ThirdPartyFolder;
+            _initialized = false;
+            _isLoading = false;
+            _isDownloading = false;
+            _errorMessage = null;
+            _scroll = Vector2.zero;
+            _packages = null;
         }
     }
 }

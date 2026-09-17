@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -77,24 +76,20 @@ namespace Vida.Framework.CodeEditor
                 return;
             }
 
-            JToken files = JToken.Parse(response);
-            if (files.Type != JTokenType.Array)
+            GithubFileList responseFiles = JsonUtility.FromJson<GithubFileList>("{\"items\":" + response + "}");
+            if (responseFiles?.items == null)
             {
                 return;
             }
 
-            List<JToken> sortedFiles = new List<JToken>();
-            foreach (JToken file in files)
-            {
-                sortedFiles.Add(file);
-            }
+            List<GithubFile> sortedFiles = new List<GithubFile>(responseFiles.items);
 
             sortedFiles.Sort(CompareGithubFile);
 
-            foreach (JToken file in sortedFiles)
+            foreach (GithubFile file in sortedFiles)
             {
-                string fileName = file["name"]?.ToString();
-                string fileType = file["type"]?.ToString();
+                string fileName = file.name;
+                string fileType = file.type;
                 if (string.IsNullOrEmpty(fileName))
                 {
                     continue;
@@ -104,7 +99,7 @@ namespace Vida.Framework.CodeEditor
                 {
                     string nextCategory = string.IsNullOrEmpty(category) ? fileName : category;
                     string nextRelativePath = GetRelativePath(relativePath, fileName);
-                    string nextUrl = file["url"]?.ToString();
+                    string nextUrl = file.url;
                     if (!string.IsNullOrEmpty(nextUrl))
                     {
                         await LoadDataFromGithub(nextUrl, nextCategory, nextRelativePath, codeDatas);
@@ -120,9 +115,9 @@ namespace Vida.Framework.CodeEditor
             }
         }
         
-        private static async Task ReadCodeFile(JToken file, string category, string relativePath, List<CodeData> codeDatas)
+        private static async Task ReadCodeFile(GithubFile file, string category, string relativePath, List<CodeData> codeDatas)
         {
-            string fileName = file["name"]?.ToString();
+            string fileName = file.name;
             string content = await ReadFileContent(file);
             if (string.IsNullOrEmpty(fileName) || content == null)
             {
@@ -185,9 +180,9 @@ namespace Vida.Framework.CodeEditor
             return lines; // Satırları içeren listeyi döndürüyoruz.
         }
 
-        private static async Task<string> ReadFileContent(JToken file)
+        private static async Task<string> ReadFileContent(GithubFile file)
         {
-            string apiUrl = file["url"]?.ToString();
+            string apiUrl = file.url;
             if (!string.IsNullOrEmpty(apiUrl))
             {
                 string content = await SendGithubRequest(apiUrl, GitHubRawAcceptHeader);
@@ -197,7 +192,7 @@ namespace Vida.Framework.CodeEditor
                 }
             }
 
-            string downloadUrl = file["download_url"]?.ToString();
+            string downloadUrl = file.download_url;
             if (!string.IsNullOrEmpty(downloadUrl))
             {
                 return await SendGithubRequest(downloadUrl, GitHubRawAcceptHeader);
@@ -335,10 +330,10 @@ namespace Vida.Framework.CodeEditor
             return content.Replace("\r\n", "\n").Replace('\r', '\n');
         }
 
-        private static int CompareGithubFile(JToken a, JToken b)
+        private static int CompareGithubFile(GithubFile a, GithubFile b)
         {
-            string aType = a["type"]?.ToString();
-            string bType = b["type"]?.ToString();
+            string aType = a?.type;
+            string bType = b?.type;
             bool aIsDir = aType == "dir";
             bool bIsDir = bType == "dir";
             if (aIsDir != bIsDir)
@@ -346,9 +341,24 @@ namespace Vida.Framework.CodeEditor
                 return aIsDir ? -1 : 1;
             }
 
-            string aName = a["name"]?.ToString();
-            string bName = b["name"]?.ToString();
+            string aName = a?.name;
+            string bName = b?.name;
             return string.Compare(aName, bName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Serializable]
+        private sealed class GithubFileList
+        {
+            public GithubFile[] items;
+        }
+
+        [Serializable]
+        private sealed class GithubFile
+        {
+            public string name;
+            public string type;
+            public string url;
+            public string download_url;
         }
 
         private static int CompareCodeData(CodeData a, CodeData b)

@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 using Vida.Framework.CodeEditor;
 
@@ -12,9 +12,8 @@ namespace Vida.Framework.Editor
             new ToolbarItem("Home", "icon-home.png", "Overview"),
             new ToolbarItem("Starter", "icon-starter.png", "Starter packs"),
             new ToolbarItem("SDK", "icon-sdk.png", "SDK packages"),
-            new ToolbarItem("Templates", "icon-templates.png", "Asset templates"),
             new ToolbarItem("Codes", "icon-codes.png", "Code snippets"),
-            new ToolbarItem("Settings", "icon-settings.png", "Preferences")
+            new ToolbarItem("Packages", "icon-download.png", "Framework packages")
         };
 
         public void DrawSidebar(Rect sidebarRect, Texture2D logoTexture)
@@ -26,6 +25,7 @@ namespace Vida.Framework.Editor
             Rect innerRect = VidaPremiumGUI.GetInnerRect(sidebarRect, padding);
             GUILayout.BeginArea(innerRect);
             {
+                GUILayout.Space(12f);
                 VidaPremiumGUI.DrawBrandHeader(logoTexture, isCompact);
                 GUILayout.Space(isCompact ? 12f : 18f);
 
@@ -56,15 +56,16 @@ namespace Vida.Framework.Editor
         {
             VidaPremiumGUI.DrawHeaderBackground(headerRect);
 
-            Rect innerRect = VidaPremiumGUI.GetInnerRect(headerRect, 12f);
-            bool useIconActions = headerRect.width < 720f;
+            Rect innerRect = VidaPremiumGUI.GetInnerRect(headerRect, 24f);
+            bool useIconActions = headerRect.width < 700f;
             GUILayout.BeginArea(innerRect);
             {
                 using (new GUILayout.HorizontalScope())
                 {
-                    using (new GUILayout.VerticalScope(GUILayout.Width(useIconActions ? 150f : 230f)))
+                    using (new GUILayout.VerticalScope(GUILayout.Width(innerRect.width - (useIconActions ? 120f : 302f))))
                     {
-                        VidaPremiumGUI.DrawHeaderInfo(GetSelected(), GetSelectedSubtitle());
+                        VidaPremiumGUI.DrawHeaderInfo(VidaFramework.Connection ? GetPageTitle() : "Welcome",
+                            VidaFramework.Connection ? GetSelectedSubtitle() : "Connect your Vida account to get started.");
                     }
 
                     GUILayout.FlexibleSpace();
@@ -73,16 +74,16 @@ namespace Vida.Framework.Editor
                     float reloadWidth = useIconActions ? 34f : 96f;
                     float logoutWidth = useIconActions ? 34f : 96f;
 
-                    if (VidaPremiumGUI.DrawHeaderAction("Cache", VidaPremiumGUI.GetPremiumTexture("icon-cache-reset.png"), cacheWidth, false, false, useIconActions))
+                    if (VidaPremiumGUI.DrawHeaderAction("Cache", VidaPremiumGUI.GetPremiumTexture("icon-cache-reset.png"), cacheWidth, false, false, useIconActions, true))
                     {
-                        GithubConnector.ClearUnityPackageCache(true);
+                        FrameworkStoreClient.ClearCache();
                         ResetPackageWindowData();
                         ReloadNeeded = true;
                     }
 
                     GUILayout.Space(6f);
 
-                    if (VidaPremiumGUI.DrawHeaderAction("Reload", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), reloadWidth, false, false, useIconActions))
+                    if (VidaPremiumGUI.DrawHeaderAction("Reload", VidaPremiumGUI.GetPremiumTexture("icon-reload.png"), reloadWidth, false, false, useIconActions, true))
                     {
                         ReloadSelectedWindow();
                         ReloadNeeded = true;
@@ -91,7 +92,7 @@ namespace Vida.Framework.Editor
                     if (VidaFramework.Connection)
                     {
                         GUILayout.Space(6f);
-                        if (VidaPremiumGUI.DrawHeaderAction("Logout", VidaPremiumGUI.GetPremiumTexture("icon-logout.png"), logoutWidth, false, true, useIconActions))
+                        if (VidaPremiumGUI.DrawHeaderAction("Logout", VidaPremiumGUI.GetPremiumTexture("icon-logout.png"), logoutWidth, false, false, useIconActions, true))
                         {
                             Logout();
                         }
@@ -114,22 +115,38 @@ namespace Vida.Framework.Editor
         }
         public int GetSelectedIndex()
         {
-            int selectedIndex = EditorPrefs.GetInt("MainToolbarSelectedIndex", 0);
-            if (selectedIndex < 0 || selectedIndex >= _items.Length)
+            string selected = EditorPrefs.GetString("VidaFramework.SelectedPage", string.Empty);
+            if (string.IsNullOrEmpty(selected))
             {
-                return 0;
+                // Preserve existing pages when the two empty tabs are removed.
+                int legacyIndex = EditorPrefs.GetInt("MainToolbarSelectedIndex", 0);
+                string[] legacyPages = { "Home", "Starter", "SDK", "Home", "Codes", "Home", "Packages" };
+                selected = legacyIndex >= 0 && legacyIndex < legacyPages.Length ? legacyPages[legacyIndex] : "Home";
             }
+            for (int i = 0; i < _items.Length; i++)
+            {
+                if (_items[i].Label == selected)
+                {
+                    return i;
+                }
+            }
+            return 0;
+        }
 
-            return selectedIndex;
-        }
-    
-        private bool IsSelected(int index)
-        {
-            return EditorPrefs.GetInt("MainToolbarSelectedIndex", 0) == index;
-        }
         private void SetSelected(int index)
         {
-            EditorPrefs.SetInt("MainToolbarSelectedIndex", index);
+            EditorPrefs.SetString("VidaFramework.SelectedPage", _items[index].Label);
+        }
+
+        private string GetPageTitle()
+        {
+            switch (GetSelected())
+            {
+                case "Starter": return "Starter Packages";
+                case "SDK": return "SDK Packages";
+                case "Packages": return "Framework Packages";
+                default: return GetSelected();
+            }
         }
 
         private void ReloadSelectedWindow()
@@ -142,11 +159,11 @@ namespace Vida.Framework.Editor
                 case "SDK":
                     SdkWindow.RequestReload();
                     break;
-                case "Templates":
-                    TemplatesWindow.RequestReload();
-                    break;
                 case "Codes":
                     global::Vida.Framework.CodesWindow.RequestReload();
+                    break;
+                case "Packages":
+                    PackagesWindow.RequestReload();
                     break;
             }
         }
@@ -156,6 +173,7 @@ namespace Vida.Framework.Editor
             StarterWindow.ResetCachedData();
             SdkWindow.ResetCachedData();
             TemplatesWindow.ResetCachedData();
+            PackagesWindow.ResetCachedData();
 
             if (GetSelected() == "Codes")
             {
@@ -163,12 +181,10 @@ namespace Vida.Framework.Editor
             }
         }
 
-        private void Logout()
+        private async void Logout()
         {
-            GithubConnector.ClearApiKey();
-            GithubConnector.ResetConnection();
-            VidaFramework.Connection = false;
-            VidaFramework.AutoConnect = false;
+            await FrameworkSession.SignOutAsync();
+            FrameworkStoreClient.ClearCache();
             DataReader.CodeData.Clear();
         }
 

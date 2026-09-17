@@ -1,35 +1,46 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using Vida.Framework.Editor;
 
 namespace Vida.Framework
 {
     public class CodesCustomWindow : EditorWindow
     {
-        private static CodesWindow _codesWindow = new CodesWindow();
-        
-        [MenuItem("Vida/Codes",false,0)]
+        private readonly CodesWindow _codesWindow = new CodesWindow();
+
+        [MenuItem("Vida/Codes", false, 0)]
         private static void OpenWindow()
         {
-            var window = GetWindow<CodesCustomWindow>();
-            Rect rect = window.position;
-            rect.width = 900;
-            rect.height = 500;
-            
-            float x = Screen.currentResolution.width / 2f - rect.width / 2;
-            float y = Screen.currentResolution.height / 2f - rect.height / 2;
-            rect.x = x;
-            rect.y = y;
-            
-            window.position = rect;
-            window.minSize = new Vector2(900, 500);
-            window.titleContent = new GUIContent("Codes","Framework codes");
+            bool wasOpen = HasOpenInstances<CodesCustomWindow>();
+            CodesCustomWindow window = GetWindow<CodesCustomWindow>();
+            window.minSize = new Vector2(720f, 480f);
+            window.titleContent = new GUIContent("Codes", "Framework codes");
+            if (!wasOpen)
+            {
+                Rect rect = new Rect(0f, 0f, 900f, 600f);
+                rect.center = EditorGUIUtility.GetMainWindowPosition().center;
+                window.position = rect;
+            }
         }
-        
+
+        private void OnEnable() { wantsMouseMove = true; }
+
         private void OnGUI()
         {
-            _codesWindow.Draw(new Vector2(position.width, position.height));
+            if (Event.current.type == EventType.MouseMove) Repaint();
+            Rect rect = new Rect(0f, 0f, position.width, position.height);
+            VidaPremiumGUI.DrawWindowBackground(rect);
+            rect = VidaPremiumGUI.GetInnerRect(rect);
+            GUILayout.BeginArea(rect);
+            _codesWindow.Draw(rect.size, true);
+            GUILayout.EndArea();
+        }
+
+        protected override void OnBackingScaleFactorChanged()
+        {
+            VidaPremiumGUI.ResetStyles();
+            CodeEditorDrawer.Reset();
+            Repaint();
         }
     }
 }

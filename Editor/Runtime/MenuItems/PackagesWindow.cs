@@ -1,21 +1,22 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
 namespace Vida.Framework.Editor
 {
-    public class StarterWindow
+    public class PackagesWindow
     {
+        private static bool _resetRequested;
+        private static bool _reloadRequested;
+
         private bool _initialized;
         private bool _isLoading;
-        private bool _isRefreshing;
         private string _errorMessage;
         private Vector2 _scroll;
         private List<StarterPackageInfo> _packages;
-        private static bool _resetRequested;
-        private static bool _reloadRequested;
 
         public void Draw(Vector2 windowSize)
         {
@@ -39,20 +40,19 @@ namespace Vida.Framework.Editor
                 _ = LoadPackagesAsync(false);
             }
 
-            GUILayout.BeginVertical();
             VidaPremiumGUI.DrawPackageTableHeader(windowSize.x);
             GUILayout.Space(6f);
 
             if (_isLoading)
             {
                 VidaPremiumGUI.DrawCenteredState(
-                    "Starter paketleri yükleniyor...",
-                    "Cache varsa önce hızlı liste gelir, ardından arka planda güncellenir.",
+                    "Paketler yükleniyor...",
+                    "Yayınlanmış Framework paketleri hazırlanıyor.",
                     VidaPremiumGUI.GetPremiumTexture("status-refreshing.png"));
             }
             else if (!string.IsNullOrEmpty(_errorMessage))
             {
-                if (VidaPremiumGUI.DrawRetryState("Starter paketleri alınamadı.", _errorMessage))
+                if (VidaPremiumGUI.DrawRetryState("Framework paketleri alınamadı.", _errorMessage))
                 {
                     _ = LoadPackagesAsync(true);
                 }
@@ -62,24 +62,23 @@ namespace Vida.Framework.Editor
                 _scroll = GUILayout.BeginScrollView(_scroll);
                 foreach (StarterPackageInfo package in _packages)
                 {
-                    PackageDisplayInfo displayInfo = package.GetDisplayInfo();
-                    if (VidaPremiumGUI.DrawPackageRow(displayInfo, windowSize.x, _isLoading))
+                    if (VidaPremiumGUI.DrawPackageRow(package.GetDisplayInfo(), windowSize.x, _isLoading))
                     {
                         PackageDetailsWindow.Open(package);
                     }
+
                     GUILayout.Space(6f);
                 }
+
                 GUILayout.EndScrollView();
             }
             else
             {
-                if (VidaPremiumGUI.DrawRetryState("Gösterilecek starter paketi bulunamadı.", "Repository listesini tekrar kontrol edebilirsin."))
-                {
-                    _ = LoadPackagesAsync(true);
-                }
+                VidaPremiumGUI.DrawCenteredState(
+                    "Gösterilecek Framework paketi bulunamadı.",
+                    "Kataloğu yenileyerek tekrar deneyebilirsin.",
+                    VidaPremiumGUI.GetPremiumTexture("icon-download.png"));
             }
-
-            GUILayout.EndVertical();
         }
 
         private async Task LoadPackagesAsync(bool forceRefresh)
@@ -93,40 +92,23 @@ namespace Vida.Framework.Editor
             _errorMessage = null;
             try
             {
-                _packages = await FrameworkStoreClient.GetPackagesAsync("starter", forceRefresh);
+                FrameworkSession.SessionSnapshot session = FrameworkSession.Capture();
+                List<StarterPackageInfo> framework = await FrameworkStoreClient.GetPackagesAsync("framework", forceRefresh);
+                List<StarterPackageInfo> general = await FrameworkStoreClient.GetPackagesAsync("package");
+                FrameworkSession.EnsureCurrent(session);
+                _packages = framework
+                    .Concat(general)
+                    .OrderBy(package => package.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             }
-            catch (System.Exception ex)
+            catch (Exception exception)
             {
-                _errorMessage = ex.Message;
-                Debug.LogError($"Starter paketleri alınırken hata: {ex.Message}");
+                _errorMessage = exception.Message;
+                Debug.LogError("Framework paketleri alınırken hata: " + exception.Message);
             }
             finally
             {
                 _isLoading = false;
-                EditorApplication.QueuePlayerLoopUpdate();
-            }
-        }
-
-        private async Task RefreshPackagesAsync()
-        {
-            if (_isRefreshing)
-            {
-                return;
-            }
-
-            _isRefreshing = true;
-            try
-            {
-                _packages = await FrameworkStoreClient.GetPackagesAsync("starter", true);
-                _errorMessage = null;
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogWarning($"Starter paket cache yenilemesi başarısız: {ex.Message}");
-            }
-            finally
-            {
-                _isRefreshing = false;
                 EditorApplication.QueuePlayerLoopUpdate();
             }
         }
@@ -140,17 +122,15 @@ namespace Vida.Framework.Editor
 
             _isLoading = true;
             DownloadProgressWindow.Controller progressWindow = null;
-
             try
             {
-                progressWindow = DownloadProgressWindow.Show("İndirme", $"{package.Name} indiriliyor...");
+                progressWindow = DownloadProgressWindow.Show("İndirme", package.Name + " indiriliyor...");
                 progressWindow.SetIndeterminate();
-
                 await FrameworkStoreClient.DownloadAndImportAsync(package, progressWindow);
             }
             catch (Exception exception)
             {
-                Debug.LogError("Starter paketi indirilemedi: " + exception.Message);
+                Debug.LogError("Framework paketi indirilemedi: " + exception.Message);
                 EditorUtility.DisplayDialog("İndirme başarısız", exception.Message, "Tamam");
             }
             finally
@@ -175,7 +155,6 @@ namespace Vida.Framework.Editor
         {
             _initialized = false;
             _isLoading = false;
-            _isRefreshing = false;
             _errorMessage = null;
             _scroll = Vector2.zero;
             _packages = null;

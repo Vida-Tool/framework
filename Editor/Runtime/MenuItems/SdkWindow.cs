@@ -8,8 +8,6 @@ namespace Vida.Framework.Editor
 {
     public class SdkWindow
     {
-        private const string PackageDirectory = "Sdk";
-
         private bool _initialized;
         private bool _isLoading;
         private bool _isRefreshing;
@@ -42,7 +40,6 @@ namespace Vida.Framework.Editor
             }
 
             GUILayout.BeginVertical();
-            VidaPremiumGUI.DrawSectionHeader("SDK Packages", "SDK integrations and optional packages for the current project.");
             VidaPremiumGUI.DrawPackageTableHeader(windowSize.x);
             GUILayout.Space(6f);
 
@@ -68,7 +65,7 @@ namespace Vida.Framework.Editor
                     PackageDisplayInfo displayInfo = package.GetDisplayInfo();
                     if (VidaPremiumGUI.DrawPackageRow(displayInfo, windowSize.x, _isLoading))
                     {
-                        _ = DownloadPackageAsync(package);
+                        PackageDetailsWindow.Open(package);
                     }
                     GUILayout.Space(6f);
                 }
@@ -92,14 +89,11 @@ namespace Vida.Framework.Editor
                 return;
             }
 
-            bool shouldRefreshAfterLoad = !forceRefresh && GithubConnector.HasPersistentUnityPackageCache(PackageDirectory);
-            bool refreshAfterLoad = false;
             _isLoading = true;
             _errorMessage = null;
             try
             {
-                _packages = await GithubConnector.GetSdkPackagesAsync(forceRefresh);
-                refreshAfterLoad = shouldRefreshAfterLoad;
+                _packages = await FrameworkStoreClient.GetPackagesAsync("sdk", forceRefresh);
             }
             catch (Exception ex)
             {
@@ -110,11 +104,6 @@ namespace Vida.Framework.Editor
             {
                 _isLoading = false;
                 EditorApplication.QueuePlayerLoopUpdate();
-            }
-
-            if (refreshAfterLoad)
-            {
-                _ = RefreshPackagesAsync();
             }
         }
 
@@ -128,7 +117,7 @@ namespace Vida.Framework.Editor
             _isRefreshing = true;
             try
             {
-                _packages = await GithubConnector.GetSdkPackagesAsync(true);
+                _packages = await FrameworkStoreClient.GetPackagesAsync("sdk", true);
                 _errorMessage = null;
             }
             catch (Exception ex)
@@ -157,11 +146,12 @@ namespace Vida.Framework.Editor
                 progressWindow = DownloadProgressWindow.Show("İndirme", $"{package.Name} indiriliyor...");
                 progressWindow.SetIndeterminate();
 
-                bool result = await GithubConnector.DownloadStarterAsync(package.ApiUrl, progressWindow);
-                if (!result)
-                {
-                    EditorUtility.DisplayDialog("İndirme başarısız", $"{package.Name} indirilemedi.", "Tamam");
-                }
+                await FrameworkStoreClient.DownloadAndImportAsync(package, progressWindow);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("SDK paketi indirilemedi: " + exception.Message);
+                EditorUtility.DisplayDialog("İndirme başarısız", exception.Message, "Tamam");
             }
             finally
             {

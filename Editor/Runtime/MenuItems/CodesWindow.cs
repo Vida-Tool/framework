@@ -33,10 +33,16 @@ namespace Vida.Framework
             DataReader.LoadData();
         }
 
-        public void Draw(Vector2 windowSize)
+        public void Draw(Vector2 windowSize, bool showHeader = false)
         {
+            VidaPremiumGUI.DrawInlineMessage("Codes is a legacy source and is not part of the authenticated Framework Store v1 catalog.", false);
+            GUILayout.Space(8f);
             TryInit();
-            VidaPremiumGUI.DrawSectionHeader("Codes", "Reusable code snippets grouped by category.");
+            if (showHeader)
+            {
+                VidaPremiumGUI.DrawSectionHeader("Codes", "Reusable code snippets grouped by category.");
+                windowSize.y -= 68f;
+            }
             if (_categories == null || _categories.Count == 0)
             {
                 VidaPremiumGUI.DrawCenteredState(

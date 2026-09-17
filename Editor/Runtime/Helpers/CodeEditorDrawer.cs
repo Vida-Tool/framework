@@ -22,8 +22,8 @@ namespace Vida.Framework
         private const string OperatorColor = "#A9B7C6";
         private const string AttributeColor = "#BBB529";
 
-        private static readonly Color CodeBackgroundColor = new Color32(0x15, 0x14, 0x18, 0xFF);
-        private static readonly Color GutterBackgroundColor = new Color32(0x10, 0x0F, 0x12, 0xFF);
+        private static readonly Color CodeBackgroundColor = new Color32(0x1C, 0x1B, 0x20, 0xFF);
+        private static readonly Color GutterBackgroundColor = new Color32(0x1C, 0x1B, 0x20, 0xFF);
         private static readonly Color BorderColor = new Color32(0x36, 0x32, 0x3C, 0xFF);
         private static readonly Color AccentColor = new Color32(0x7D, 0x76, 0xE8, 0xFF);
         private static readonly Color HeaderTextColor = new Color32(0xF3, 0xF0, 0xEA, 0xFF);
@@ -79,7 +79,7 @@ namespace Vida.Framework
 
             Rect cardRect = GUILayoutUtility.GetRect(cardWidth, cardHeight, GUILayout.Width(cardWidth), GUILayout.Height(cardHeight));
             VidaPremiumGUI.DrawFrame(cardRect, "frame-panel.png");
-            DrawPremiumAccent(cardRect);
+
 
             Rect headerRect = new Rect(cardRect.x + CardPadding, cardRect.y + CardPadding, cardRect.width - CardPadding * 2f, HeaderHeight);
             DrawHeader(data, headerRect);
