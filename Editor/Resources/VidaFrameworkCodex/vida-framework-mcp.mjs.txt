@@ -1,0 +1,333 @@
+#!/usr/bin/env node
+import { randomBytes } from "node:crypto";
+import { lstat, open, readFile, realpath, rename } from "node:fs/promises";
+import { dirname, join, parse, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+const SCHEMA_VERSION = "1.0";
+const MAX_JSON_BYTES = 256 * 1024;
+const STATUS_MAX_AGE_MS = 15_000;
+const TOOLS = [
+  tool(
+    "vida_framework_status",
+    "Check the Vida Framework bridge in one Unity project, or read a previously started operation.",
+    {
+      projectPath: pathProperty(),
+      operationId: { type: "string", pattern: "^[a-f0-9]{32}$" },
+    },
+    [],
+    { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  ),
+  tool(
+    "vida_framework_sign_in",
+    "Use the running Unity Editor to reuse the current Vida session or open the secure Vida sign-in page in the user's browser.",
+    { projectPath: pathProperty() },
+    [],
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  ),
+  tool(
+    "vida_framework_list_packages",
+    "List latest published Vida Framework packages visible to the signed-in Unity Editor. Version history is intentionally omitted.",
+    {
+      projectPath: pathProperty(),
+      kind: { type: "string", enum: ["framework", "starter", "sdk", "template", "package"] },
+    },
+    [],
+    { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+  ),
+  tool(
+    "vida_framework_install_latest",
+    "Import the latest published version of one exact package ID into the open Unity project after integrity verification.",
+    {
+      projectPath: pathProperty(),
+      packageId: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    },
+    ["packageId"],
+    { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+  ),
+];
+
+function pathProperty() {
+  return { type: "string", minLength: 1, maxLength: 2048 };
+}
+
+function tool(name, description, properties, required, annotations) {
+  return {
+    name,
+    description,
+    inputSchema: { type: "object", additionalProperties: false, properties, required },
+    annotations,
+  };
+}
+
+function fail(code, message = code) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function sleep(milliseconds) {
+  return new Promise(resolvePromise => setTimeout(resolvePromise, milliseconds));
+}
+
+async function safeInfo(path, expectedType) {
+  let info;
+  try {
+    info = await lstat(path);
+  } catch (error) {
+    if (error.code === "ENOENT") throw fail("bridge_not_installed", "Open this project in Unity with Vida Framework installed.");
+    throw error;
+  }
+  if (info.isSymbolicLink() || (expectedType === "directory" && !info.isDirectory())
+    || (expectedType === "file" && !info.isFile())) throw fail("unsafe_bridge_path");
+  return info;
+}
+
+async function findUnityProject(requestedPath) {
+  let current;
+  try {
+    current = await realpath(resolve(requestedPath || process.cwd()));
+  } catch {
+    throw fail("unity_project_not_found");
+  }
+  const inputInfo = await lstat(current);
+  if (!inputInfo.isDirectory() || inputInfo.isSymbolicLink()) throw fail("unity_project_not_found");
+
+  while (true) {
+    try {
+      const assets = await lstat(join(current, "Assets"));
+      const version = await lstat(join(current, "ProjectSettings", "ProjectVersion.txt"));
+      if (assets.isDirectory() && !assets.isSymbolicLink() && version.isFile() && !version.isSymbolicLink()) return current;
+    } catch {}
+    const parent = dirname(current);
+    if (parent === current || current === parse(current).root) break;
+    current = parent;
+  }
+  throw fail("unity_project_not_found", "Pass a path inside the intended Unity project.");
+}
+
+function bridgePaths(projectRoot) {
+  const root = join(projectRoot, "Library", "VidaFramework", "CodexBridge");
+  return {
+    root,
+    requests: join(root, "requests"),
+    responses: join(root, "responses"),
+    status: join(root, "status.json"),
+  };
+}
+
+async function readJsonFile(path, missingCode = "bridge_not_installed") {
+  let info;
+  try {
+    info = await lstat(path);
+  } catch (error) {
+    if (error.code === "ENOENT") throw fail(missingCode);
+    throw error;
+  }
+  if (!info.isFile() || info.isSymbolicLink() || info.size <= 0 || info.size > MAX_JSON_BYTES) throw fail("invalid_bridge_response");
+  let value;
+  try {
+    value = JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    throw fail("invalid_bridge_response");
+  }
+  return value;
+}
+
+async function readBridgeStatus(projectRoot) {
+  const paths = bridgePaths(projectRoot);
+  await safeInfo(paths.root, "directory");
+  await safeInfo(paths.requests, "directory");
+  await safeInfo(paths.responses, "directory");
+  const status = await readJsonFile(paths.status);
+  if (status?.schemaVersion !== SCHEMA_VERSION || status.ready !== true
+    || await realpath(status.projectPath).catch(() => "") !== projectRoot
+    || !Number.isSafeInteger(status.updatedAt)) throw fail("invalid_bridge_response");
+  if (Date.now() - status.updatedAt > STATUS_MAX_AGE_MS) {
+    throw fail("unity_editor_not_ready", "Open the project in Unity and wait for compilation to finish.");
+  }
+  return { paths, status };
+}
+
+async function readOperation(paths, operationId) {
+  if (!/^[a-f0-9]{32}$/.test(operationId || "")) throw fail("invalid_operation_id");
+  const path = join(paths.responses, `${operationId}.json`);
+  let response;
+  try {
+    response = await readJsonFile(path, "operation_pending");
+  } catch (error) {
+    if (error.code === "operation_pending") return null;
+    throw error;
+  }
+  if (response?.schemaVersion !== SCHEMA_VERSION || response.operationId !== operationId
+    || !["completed", "failed"].includes(response.state)) throw fail("invalid_bridge_response");
+  return response;
+}
+
+async function enqueue(projectRoot, command, fields = {}) {
+  const { paths } = await readBridgeStatus(projectRoot);
+  const operationId = randomBytes(16).toString("hex");
+  const request = {
+    schemaVersion: SCHEMA_VERSION,
+    operationId,
+    command,
+    ...fields,
+    createdAt: Date.now(),
+  };
+  const target = join(paths.requests, `${operationId}.json`);
+  const temporary = join(paths.requests, `.${operationId}.${randomBytes(8).toString("hex")}.tmp`);
+  const file = await open(temporary, "wx", 0o600);
+  try {
+    await file.writeFile(`${JSON.stringify(request)}\n`, "utf8");
+    await file.sync();
+  } finally {
+    await file.close();
+  }
+  await rename(temporary, target);
+  return { operationId, paths };
+}
+
+async function waitForOperation(paths, operationId, waitMilliseconds) {
+  const deadline = Date.now() + waitMilliseconds;
+  do {
+    const response = await readOperation(paths, operationId);
+    if (response) return response;
+    await sleep(100);
+  } while (Date.now() < deadline);
+  return null;
+}
+
+function pending(operationId, command, status) {
+  return {
+    success: true,
+    state: "pending",
+    operationId,
+    command,
+    signedIn: status.signedIn,
+    action: "Poll vida_framework_status with this operationId until it completes or fails.",
+  };
+}
+
+function completeOrThrow(response) {
+  if (!response) return null;
+  if (response.success === false) throw fail(response.errorCode || "operation_failed", response.errorMessage || "operation_failed");
+  return response;
+}
+
+async function projectAndStatus(input) {
+  const projectRoot = await findUnityProject(input.projectPath);
+  const bridge = await readBridgeStatus(projectRoot);
+  return { projectRoot, ...bridge };
+}
+
+export async function callTool(name, input = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw fail("invalid_arguments");
+  const current = await projectAndStatus(input);
+
+  if (name === "vida_framework_status") {
+    if (!input.operationId) return current.status;
+    const response = await readOperation(current.paths, input.operationId);
+    return response || pending(input.operationId, current.status.activeOperationId === input.operationId ? "active" : "queued", current.status);
+  }
+
+  if (name === "vida_framework_sign_in") {
+    if (current.status.signedIn) {
+      return { success: true, state: "completed", signedIn: true, alreadySignedIn: true };
+    }
+    const operation = await enqueue(current.projectRoot, "sign_in");
+    const response = completeOrThrow(await waitForOperation(operation.paths, operation.operationId, 1_000));
+    return response || pending(operation.operationId, "sign_in", current.status);
+  }
+
+  if (name === "vida_framework_list_packages") {
+    const operation = await enqueue(current.projectRoot, "list_packages", { kind: input.kind || "" });
+    const response = completeOrThrow(await waitForOperation(operation.paths, operation.operationId, 30_000));
+    return response || pending(operation.operationId, "list_packages", current.status);
+  }
+
+  if (name === "vida_framework_install_latest") {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.packageId || "")) throw fail("invalid_package_id");
+    const operation = await enqueue(current.projectRoot, "install_latest", { packageId: input.packageId });
+    const response = completeOrThrow(await waitForOperation(operation.paths, operation.operationId, 500));
+    return response || pending(operation.operationId, "install_latest", current.status);
+  }
+
+  throw fail("tool_not_found");
+}
+
+function result(value) {
+  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+}
+
+function errorResult(error) {
+  const code = typeof error?.code === "string" && /^[a-z0-9_]+$/.test(error.code) ? error.code : "operation_failed";
+  const safeCodes = new Set([
+    "bridge_not_installed", "framework_update_not_supported", "invalid_operation_id", "invalid_package_id",
+    "operation_canceled", "operation_failed", "package_not_found", "sign_in_required", "unity_busy",
+    "unity_editor_not_ready", "unity_project_not_found", "unity_version_not_supported",
+  ]);
+  const message = safeCodes.has(code) && typeof error?.message === "string" ? error.message : code;
+  return { isError: true, content: [{ type: "text", text: `${code}: ${message}` }] };
+}
+
+async function handle(message) {
+  if (message.method === "initialize") {
+    return {
+      protocolVersion: "2025-06-18",
+      capabilities: { tools: {} },
+      serverInfo: { name: "vida-framework", version: "1.0.0" },
+      instructions: "Use vida_framework_status first. If signedIn is false, call vida_framework_sign_in; it reuses a valid Unity session or opens Vida sign-in in the system browser. List packages before installing, pass only an exact returned package ID, and poll status for pending operations. Installs always use the latest published version and require the intended Unity project to be open and idle.",
+    };
+  }
+  if (message.method === "ping") return {};
+  if (message.method === "tools/list") return { tools: TOOLS };
+  if (message.method === "tools/call") {
+    try {
+      return result(await callTool(message.params?.name, message.params?.arguments || {}));
+    } catch (error) {
+      return errorResult(error);
+    }
+  }
+  throw Object.assign(new Error("Method not found"), { rpcCode: -32601 });
+}
+
+export async function serve(input = process.stdin, output = process.stdout) {
+  input.setEncoding("utf8");
+  let buffer = "";
+  for await (const chunk of input) {
+    buffer += chunk;
+    if (buffer.length > MAX_JSON_BYTES) throw fail("request_too_large");
+    let newline;
+    while ((newline = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, newline).trim();
+      buffer = buffer.slice(newline + 1);
+      if (!line) continue;
+      let message;
+      try {
+        message = JSON.parse(line);
+      } catch {
+        output.write(`${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })}\n`);
+        continue;
+      }
+      if (!message || typeof message !== "object" || Array.isArray(message)
+        || message.jsonrpc !== "2.0" || typeof message.method !== "string") {
+        output.write(`${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid Request" } })}\n`);
+        continue;
+      }
+      if (message.id === undefined) continue;
+      try {
+        output.write(`${JSON.stringify({ jsonrpc: "2.0", id: message.id, result: await handle(message) })}\n`);
+      } catch (error) {
+        output.write(`${JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { code: error.rpcCode || -32603, message: "Request failed" } })}\n`);
+      }
+    }
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  serve().catch(error => {
+    const code = typeof error?.code === "string" && /^[a-z0-9_]+$/.test(error.code) ? error.code : "operation_failed";
+    process.stderr.write(`Vida Framework MCP: ${code}\n`);
+    process.exitCode = 1;
+  });
+}

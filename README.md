@@ -56,3 +56,22 @@ versions are installed, after size and SHA-256 verification, without an import
 selection dialog. Unity must be idle and satisfy the package's minimum version.
 Git/UPM installations remain managed through Package Manager to avoid creating a
 second Framework installation in Assets.
+
+## Codex bridge
+
+Choose **Vida > Framework > Install or Repair Codex Bridge** once after importing
+Framework. The explicit installer copies the packaged local MCP connector to the
+current user's `.vida/framework-mcp` directory and adds the `vida-framework` STDIO
+server to the user's Codex `config.toml`. Restart Codex after installation.
+
+With the intended Unity project open, Codex can then check the Framework session,
+start secure Vida sign-in in the system browser, list the latest visible packages,
+and import the latest release for an exact catalog package ID. A valid Editor-session
+login is reused. Package history and arbitrary file or URL imports are deliberately
+not exposed. Import operations require Unity to be idle and outside Play Mode; the
+Framework package itself continues to use **Güncellemeleri kontrol et** in
+**Vida > Menu**.
+
+The connector communicates only through generated files under
+`Library/VidaFramework/CodexBridge`. Session handles remain inside Unity and are
+never written to the bridge directory or returned to Codex.

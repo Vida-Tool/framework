@@ -56,6 +56,7 @@ namespace Vida.Framework.Editor
                 .Where(path => path.StartsWith(FrameworkAssetPath + "/", StringComparison.Ordinal)
                     && !AssetDatabase.IsValidFolder(path)
                     && !path.StartsWith(FrameworkAssetPath + "/graphify-out/", StringComparison.Ordinal)
+                    && !path.StartsWith(FrameworkAssetPath + "/Tests/", StringComparison.Ordinal)
                     && !path.EndsWith("/AGENTS.md", StringComparison.Ordinal)
                     && !path.EndsWith("/CODE_MAP.md", StringComparison.Ordinal))
                 .ToArray();
