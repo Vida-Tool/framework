@@ -1,0 +1,12 @@
+# Framework's nested Git/Codex root needs its own MCP override.
+[mcp_servers.aws-mcp]
+enabled = false
+
+[mcp_servers.cloudflare-api]
+enabled = false
+
+[mcp_servers.cloudflare-portal]
+enabled = false
+
+[mcp_servers.vida-packages]
+enabled = true
