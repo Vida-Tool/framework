@@ -36,6 +36,46 @@ does not use Unity's `IncludeDependencies` option, which would copy unrelated pr
 assets. The exporter enforces the Framework Store's exact 100,000,000-byte artifact
 limit.
 
+Exporting now requests a Unity organization signature and requires Unity 6.6 or
+later. Sign in to Unity as a member of the intended organization. The exporter
+uses `CloudProjectSettings.organizationKey`, or the explicit automation argument
+`-vidaSigningOrganization <organization-id>`. A missing organization stops the
+export; it never silently selects an unsigned export. Existing output files are
+preserved, so choose a new path. Importing these packages remains compatible with
+older supported Editors.
+
+For Unity 6.6, the signing ID is the organization's legacy numeric ID
+(`genesisId` in `unity cloud org list`), matching `organizationKey`; do not pass
+the Cloud organization's UUID. Use only the organization authorized for the
+release. A GUI Editor session must be signed in; a CLI login alone does not
+establish that Editor session.
+
+Unity itself can produce an unsigned file when signing fails. The export log
+therefore reports `signingRequested=true signatureReadbackRequired=true`, not a
+verified signature. The exporter rejects files without Unity 6.6's nonempty
+`package/.attestation.p7m` entry; it does not rely on Console callbacks, which can
+miss native signing errors. Presence alone does not verify the signature.
+Before release, inspect the resulting signature during import
+in a disposable Unity 6.6 project. A file or successful process exit alone is not
+proof. Recompute the artifact's size and SHA-256 after signing; publication is a
+separate action.
+
+To re-export an existing Starter asset set, use
+`Vida.Framework.Editor.FrameworkPackageExporter.ExportAssetListForAutomation`
+with `-vidaPackageAssetList <json>`, `-vidaPackageOutput <new.unitypackage>` and
+`-vidaSigningOrganization <organization-id>`. The JSON contains an `assets` array
+of `{ "path": "Assets/...", "folder": false, "sha256": "...", "metaSha256": "..." }`
+records derived from the selected original `.unitypackage`. Folder records use
+`folder: true` and still require their metadata hash. Native plugin bundle members
+that have no individual `.meta` in the original archive use an empty metadata hash;
+the exporter checks that no metadata file has appeared for those members. It verifies every
+asset and `.meta` hash before export, rejecting local source drift instead of
+silently signing a different Starter. It exports only listed paths, with no
+recursive or dependency expansion. Use a dedicated staging project containing
+those exact source assets when the working project has unrelated edits.
+
+Unity reference: [asset-package signatures](https://docs.unity.com/en-us/engine/6000.6/manual/assets-and-media/asset-packages/signatures).
+
 ## Possible Errors
 
 If Unity reports that no `git` executable was found while using the optional Git
